@@ -62,6 +62,17 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .addRoute("0.0.0.0", 0)
                     .addDnsServer(DNS_SERVER);
 
+            // Match Happ's excluded routes: keep private/LAN and link-local
+            // destinations outside the VPN instead of forcing them through Xray.
+            if (Build.VERSION.SDK_INT >= 33) {
+                builder.excludeRoute(new android.net.IpPrefix("10.0.0.0/8"));
+                builder.excludeRoute(new android.net.IpPrefix("172.16.0.0/12"));
+                builder.excludeRoute(new android.net.IpPrefix("192.168.0.0/16"));
+                builder.excludeRoute(new android.net.IpPrefix("169.254.0.0/16"));
+                builder.excludeRoute(new android.net.IpPrefix("224.0.0.0/4"));
+                builder.excludeRoute(new android.net.IpPrefix("255.255.255.255/32"));
+            }
+
             java.util.Set<String> allowedApps = getSharedPreferences("vpn_settings", MODE_PRIVATE)
                     .getStringSet("allowed_apps", java.util.Collections.emptySet());
             if (allowedApps != null && !allowedApps.isEmpty()) {
@@ -113,25 +124,10 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .put("protocol", "tun")
                     .put("settings", tunSettings);
 
-            // Send DNS packets from Android's TUN to Xray's DNS outbound.
-            // The previous catch-all rule sent port 53 through the proxy as ordinary
-            // application traffic; that can leave Android connected but unable to
-            // resolve any hostnames on transports that do not carry DNS reliably.
-            // Keep DNS on UDP by default. Forcing TCP here caused some mobile
-            // networks/resolvers to stall or reset lookups, while cached-IP apps
-            // (for example Telegram) could appear to work.
-            JSONObject dnsOutbound = new JSONObject()
-                    .put("tag", "dns-out")
-                    .put("protocol", "dns")
-                    .put("settings", new JSONObject());
-            outbounds.put(dnsOutbound);
-
+            // Happ's logs show DNS packets (1.1.1.1:53/UDP) going through
+            // the selected proxy outbound. Match that behaviour instead of
+            // intercepting DNS with a separate DNS outbound.
             JSONArray routingRules = new JSONArray()
-                    .put(new JSONObject()
-                            .put("type", "field")
-                            .put("inboundTag", new JSONArray().put("tun-in"))
-                            .put("port", "53")
-                            .put("outboundTag", "dns-out"))
                     .put(new JSONObject()
                             .put("type", "field")
                             .put("inboundTag", new JSONArray().put("tun-in"))
