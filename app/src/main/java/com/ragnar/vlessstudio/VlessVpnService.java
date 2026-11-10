@@ -6,6 +6,8 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import java.net.InetAddress;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -65,12 +67,12 @@ public class VlessVpnService extends VpnService implements DialerController {
             // Match Happ's excluded routes: keep private/LAN and link-local
             // destinations outside the VPN instead of forcing them through Xray.
             if (Build.VERSION.SDK_INT >= 33) {
-                builder.excludeRoute(new android.net.IpPrefix("10.0.0.0/8"));
-                builder.excludeRoute(new android.net.IpPrefix("172.16.0.0/12"));
-                builder.excludeRoute(new android.net.IpPrefix("192.168.0.0/16"));
-                builder.excludeRoute(new android.net.IpPrefix("169.254.0.0/16"));
-                builder.excludeRoute(new android.net.IpPrefix("224.0.0.0/4"));
-                builder.excludeRoute(new android.net.IpPrefix("255.255.255.255/32"));
+                builder.excludeRoute(new android.net.IpPrefix(InetAddress.getByName("10.0.0.0"), 8));
+                builder.excludeRoute(new android.net.IpPrefix(InetAddress.getByName("172.16.0.0"), 12));
+                builder.excludeRoute(new android.net.IpPrefix(InetAddress.getByName("192.168.0.0"), 16));
+                builder.excludeRoute(new android.net.IpPrefix(InetAddress.getByName("169.254.0.0"), 16));
+                builder.excludeRoute(new android.net.IpPrefix(InetAddress.getByName("224.0.0.0"), 4));
+                builder.excludeRoute(new android.net.IpPrefix(InetAddress.getByName("255.255.255.255"), 32));
             }
 
             java.util.Set<String> allowedApps = getSharedPreferences("vpn_settings", MODE_PRIVATE)
