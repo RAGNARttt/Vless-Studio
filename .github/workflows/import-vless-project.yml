@@ -5,7 +5,6 @@ name: Import VLESS Studio project
 
 permissions:
   contents: write
-  workflows: write
 
 jobs:
   import:
@@ -16,10 +15,11 @@ jobs:
 
       - name: Extract project
         run: |
-          unzip -q -o VLESS-Studio-Android-FIXED.zip -d /tmp/vless
+          mkdir -p /tmp/vless
+          unzip -q VLESS-Studio-Android-FIXED.zip -d /tmp/vless
           cp -a /tmp/vless/. .
           rm -f VLESS-Studio-Android-FIXED.zip
-          rm -f AndroidManifest.xml MainActivity.java build-apk.yml index.html
+          rm -f .github/workflows/build-apk.yml
 
       - name: Commit project
         run: |
