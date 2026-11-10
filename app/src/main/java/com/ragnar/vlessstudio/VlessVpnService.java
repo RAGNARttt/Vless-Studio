@@ -88,9 +88,9 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject converted = invoke("convertShareLinksToXrayJson",
                     new JSONObject().put("text", shareLink));
-            JSONObject data = converted.optJSONObject("data");
-            if (data == null) throw new IllegalStateException("Конвертер не вернул конфигурацию Xray");
-            JSONArray outbounds = data.optJSONArray("outbounds");
+            // libXray Invoke already unwraps the response envelope here:
+            // converted is the method's data object: {"outbounds":[...]}.
+            JSONArray outbounds = converted.optJSONArray("outbounds");
             if (outbounds == null || outbounds.length() == 0) {
                 throw new IllegalStateException("В ссылке не найден рабочий outbound");
             }
