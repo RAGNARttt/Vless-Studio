@@ -203,7 +203,6 @@ public class MainActivity extends Activity {
             String[] labelArray = labels.toArray(new String[0]);
             android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
                     .setTitle("Приложения через VPN (" + apps.size() + ")")
-                    .setMessage("Отметь приложения, которые должны использовать VPN. Пустой выбор означает все приложения.")
                     .setMultiChoiceItems(labelArray, checked, (d, which, isChecked) -> checked[which] = isChecked)
                     .setNegativeButton("Отмена", null)
                     .setNeutralButton("Все приложения", (d, which) -> {
