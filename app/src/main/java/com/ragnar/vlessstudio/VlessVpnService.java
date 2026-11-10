@@ -43,7 +43,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             }
             if (connected || starting) return START_NOT_STICKY;
             starting = true;
-            if (Build.VERSION.SDK_INT >= 29) {
+            if (Build.VERSION.SDK_INT >= 34) {
                 startForeground(1001, VpnNotification.create(this), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             } else {
                 startForeground(1001, VpnNotification.create(this));
