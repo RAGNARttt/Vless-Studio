@@ -154,8 +154,8 @@ public class VlessVpnService extends VpnService implements DialerController {
     }
 
     @Override
-    public boolean protectFd(int fd) {
-        return protect(fd);
+    public boolean protectFd(long fd) {
+        return protect((int) fd);
     }
 
     private void stopVpn() {
