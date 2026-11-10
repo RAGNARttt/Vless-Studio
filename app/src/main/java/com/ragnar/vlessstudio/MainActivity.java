@@ -126,17 +126,27 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public boolean checkTcp(String host, int port) {
-            java.net.Socket socket = new java.net.Socket();
-            try {
-                if (host == null || host.trim().isEmpty() || port < 1 || port > 65535) return false;
-                socket.connect(new java.net.InetSocketAddress(host.trim(), port), 3000);
-                return true;
-            } catch (Exception e) {
-                return false;
-            } finally {
-                try { socket.close(); } catch (Exception ignored) {}
-            }
+        public void checkTcpAsync(String host, int port, String serverId) {
+            new Thread(() -> {
+                boolean ok = false;
+                java.net.Socket socket = new java.net.Socket();
+                try {
+                    if (host != null && !host.trim().isEmpty() && port > 0 && port <= 65535) {
+                        socket.connect(new java.net.InetSocketAddress(host.trim(), port), 2500);
+                        ok = true;
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    try { socket.close(); } catch (Exception ignored) {}
+                }
+                final boolean result = ok;
+                runOnUiThread(() -> {
+                    if (webView != null) {
+                        String safeId = org.json.JSONObject.quote(serverId == null ? "" : serverId);
+                        webView.evaluateJavascript("onTcpCheckResult(" + safeId + "," + result + ")", null);
+                    }
+                });
+            }, "vless-tcp-check").start();
         }
 
         @JavascriptInterface
