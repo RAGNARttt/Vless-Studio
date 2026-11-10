@@ -1,0 +1,29 @@
+name: Import VLESS Studio project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip -q -o VLESS-Studio-Android-FIXED.zip -d /tmp/vless
+          cp -a /tmp/vless/. .
+          rm -f VLESS-Studio-Android-FIXED.zip
+          rm -f AndroidManifest.xml MainActivity.java build-apk.yml index.html
+
+      - name: Commit project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import Android project"
+          git push
