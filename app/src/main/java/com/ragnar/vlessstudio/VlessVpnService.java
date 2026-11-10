@@ -62,6 +62,17 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .addRoute("0.0.0.0", 0)
                     .addDnsServer(DNS_SERVER);
 
+            java.util.Set<String> allowedApps = getSharedPreferences("vpn_settings", MODE_PRIVATE)
+                    .getStringSet("allowed_apps", java.util.Collections.emptySet());
+            if (allowedApps != null && !allowedApps.isEmpty()) {
+                for (String packageName : allowedApps) {
+                    try { builder.addAllowedApplication(packageName); }
+                    catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                        Log.w(TAG, "Selected app is no longer installed: " + packageName);
+                    }
+                }
+            }
+
             // Carry IPv6 through the same tunnel to avoid leaking IPv6 outside the VPN.
             builder.addAddress("fd64:6c65:7373::1", 128);
             builder.addRoute("::", 0);
