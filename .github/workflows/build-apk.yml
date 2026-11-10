@@ -62,7 +62,8 @@ jobs:
           echo "=== Generated Java binding classes ==="
           jar tf /tmp/libXray-classes.jar | grep -E 'LibXray|DialerController|Seq' | head -80
           echo "=== LibXray public API ==="
-          javap -classpath /tmp/libXray-classes.jar -public go.libXray.LibXray 2>/dev/null || true
+          javap -classpath /tmp/libXray-classes.jar -public libXray.DialerController 2>/dev/null || true
+          javap -classpath /tmp/libXray-classes.jar -public libXray.LibXray 2>/dev/null || true
           javap -classpath /tmp/libXray-classes.jar -public libXray.LibXray 2>/dev/null || true
           javap -classpath /tmp/libXray-classes.jar -public go.libxray.LibXray 2>/dev/null || true
 
