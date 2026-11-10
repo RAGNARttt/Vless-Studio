@@ -1291,6 +1291,11 @@
           srv.checkStatus=ok?'online':'offline';srv.checkMessage=ok?'Порт отвечает':'Нет ответа на порту';srv.checkTime=new Date().toISOString();
           pendingTcpChecks.delete(id);persistSubscriptions();renderSubscriptionUi();
           if(pendingTcpChecks.size===0){
+            savedServers.sort((a,b)=>{
+              const rank={online:0,checking:1,unknown:2,offline:3};
+              return (rank[a.checkStatus]??2)-(rank[b.checkStatus]??2);
+            });
+            persistSubscriptions();renderSubscriptionUi();
             const online=savedServers.filter(x=>x.checkStatus==='online').length;
             showToast('Проверка завершена: порт доступен у '+online+' из '+savedServers.length);
           }
