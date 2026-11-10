@@ -151,8 +151,13 @@
     <header class="sticky top-0 z-40 glass-panel border-b border-slate-800/80">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-cyber-purple flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
-                    <i class="fa-solid font-bold fa-shield-halved text-xl"></i>
+                <div class="w-10 h-10 rounded-xl bg-[#080910] border border-red-500/70 flex items-center justify-center shadow-lg shadow-red-600/30 overflow-hidden">
+                    <svg viewBox="0 0 64 64" class="w-9 h-9" aria-label="VLESS Studio logo">
+                      <circle cx="32" cy="26" r="17" fill="#d50920"/>
+                      <g fill="none" stroke="#fff" stroke-width="2.1"><path d="M15 26h34M32 9v34M23 11c-7 8-7 22 0 30M41 11c7 8 7 22 0 30M17 18c9 5 21 5 30 0M17 34c9 5 21 5 30 0"/></g>
+                      <path fill="#f20d24" d="M10 38h7v17h-7zM18 40c8-1 11 4 17 3l12-3c4-1 6 4 2 6L31 56c-2 1-4 1-6 0l-7-3z"/>
+                      <circle cx="32" cy="32" r="29" fill="none" stroke="#ff2028" stroke-width="1.5"/>
+                    </svg>
                 </div>
                 <div>
                     <span class="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-brand-400 bg-clip-text text-transparent">VLESS Studio</span>
@@ -190,7 +195,8 @@
     </header>
 
 
-    <!-- VPN controls: service permission scaffold; tunnel integration is the next stage -->
+    <!-- Single connection dashboard lives on the Home tab; avoid duplicate controls here. -->
+
     <section class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
         <div class="glass-panel rounded-2xl p-4 vpn-control-panel">
             <div class="vpn-status flex-1 min-w-0">
