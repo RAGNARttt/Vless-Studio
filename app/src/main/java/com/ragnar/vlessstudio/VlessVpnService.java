@@ -117,10 +117,13 @@ public class VlessVpnService extends VpnService implements DialerController {
             // The previous catch-all rule sent port 53 through the proxy as ordinary
             // application traffic; that can leave Android connected but unable to
             // resolve any hostnames on transports that do not carry DNS reliably.
+            // Keep DNS on UDP by default. Forcing TCP here caused some mobile
+            // networks/resolvers to stall or reset lookups, while cached-IP apps
+            // (for example Telegram) could appear to work.
             JSONObject dnsOutbound = new JSONObject()
                     .put("tag", "dns-out")
                     .put("protocol", "dns")
-                    .put("settings", new JSONObject().put("network", "tcp"));
+                    .put("settings", new JSONObject());
             outbounds.put(dnsOutbound);
 
             JSONArray routingRules = new JSONArray()
