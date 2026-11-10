@@ -138,6 +138,12 @@
         .client-hero{background:radial-gradient(circle at 50% 42%,rgba(99,102,241,.22),transparent 42%),linear-gradient(145deg,#111827,#080b16);border:1px solid rgba(148,163,184,.16)}
         .power-ring{width:190px;height:190px;border-radius:50%;border:1px solid rgba(129,140,248,.45);display:grid;place-items:center;margin:auto;box-shadow:0 0 55px rgba(99,102,241,.12),inset 0 0 35px rgba(99,102,241,.08)}
         .power-core{width:145px;height:145px;border-radius:50%;background:radial-gradient(circle,#1e1b4b,#0b1020 72%);border:5px solid rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 0 5px rgba(255,255,255,.04),0 0 35px rgba(99,102,241,.2)}
+        .vpn-power-button{padding:0;color:inherit;background:transparent;cursor:pointer;appearance:none;-webkit-appearance:none;transition:transform .18s ease,box-shadow .18s ease}
+        .vpn-power-button:active{transform:scale(.97)}
+        .vpn-power-button:focus-visible{outline:3px solid #818cf8;outline-offset:6px}
+        .vpn-power-button.is-on{border-color:rgba(239,68,68,.75);box-shadow:0 0 55px rgba(239,68,68,.18),inset 0 0 35px rgba(239,68,68,.10)}
+        .vpn-power-button.is-on .power-core{background:radial-gradient(circle,#451a1a,#0b1020 72%);box-shadow:0 0 0 5px rgba(239,68,68,.08),0 0 35px rgba(239,68,68,.2)}
+        .vpn-power-button.is-on i{color:#f87171!important}
         .server-row{background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:13px;display:flex;align-items:center;gap:12px}
         .server-row:active{border-color:#6366f1}
         .sub-input{width:100%;background:#080d1b;border:1px solid rgba(148,163,184,.2);border-radius:13px;padding:13px;color:#e2e8f0;min-width:0}
@@ -201,10 +207,15 @@
       <div id="tab-home" class="tab-content space-y-5">
         <div class="client-hero rounded-3xl p-7 text-center">
           <div class="flex justify-between items-center mb-5"><button onclick="switchTab('tools')" class="text-slate-400 p-2"><i class="fa-solid fa-gear text-xl"></i></button><button onclick="switchTab('subscriptions')" class="text-slate-300 p-2"><i class="fa-solid fa-plus text-2xl"></i></button></div>
-          <div class="power-ring"><div class="power-core"><i class="fa-solid fa-power-off text-3xl text-brand-400 mb-2"></i><div id="home-vpn-state" class="text-xs font-semibold text-slate-300">НЕ ПОДКЛЮЧЕН</div><div id="home-vpn-timer" class="text-xs text-slate-400 mt-1">Ожидание подключения</div></div></div>
+          <button type="button" id="home-vpn-toggle" onclick="toggleVpnConnection()" class="power-ring vpn-power-button" aria-label="Подключить VPN">
+            <span class="power-core">
+              <i class="fa-solid fa-power-off text-3xl text-brand-400 mb-2"></i>
+              <span id="home-vpn-state" class="text-xs font-semibold text-slate-300">НЕ ПОДКЛЮЧЕН</span>
+              <span id="home-vpn-timer" class="text-xs text-slate-400 mt-1">Ожидание подключения</span>
+            </span>
+          </button>
           <p class="text-sm text-slate-400 mt-6">Текущее подключение</p>
           <p id="home-active-server" class="text-white font-semibold mt-1">Сервер не выбран</p>
-          <div class="mt-5"><button id="home-vpn-toggle" onclick="toggleVpnConnection()" class="client-action glow-button bg-brand-600 text-white rounded-xl py-4 px-6 font-semibold text-lg w-full"><i class="fa-solid fa-power-off mr-2"></i><span id="home-vpn-toggle-label">Подключить</span></button></div>
           <p id="home-vpn-warning" class="text-xs text-amber-300 mt-4">Xray пока не запущен: реальный VPN-туннель ещё не установлен.</p>
         </div>
         <div class="glass-panel rounded-2xl p-4"><div class="flex justify-between items-center mb-3"><h2 class="text-lg font-bold text-white">Список серверов</h2><button onclick="switchTab('subscriptions')" class="text-brand-400 text-sm">Добавить +</button></div><div id="home-server-list" class="space-y-2"><p class="text-sm text-slate-400">Добавь подписку или отдельную конфигурацию.</p></div></div>
@@ -730,14 +741,11 @@
         }
         function setVpnUiState(started) {
             vpnUiConnected = !!started;
-            const toggleLabel = document.getElementById('home-vpn-toggle-label');
             const toggleButton = document.getElementById('home-vpn-toggle');
             const homeState = document.getElementById('home-vpn-state');
-            if (toggleLabel) toggleLabel.textContent = started ? 'Отключить' : 'Подключить';
             if (toggleButton) {
-                toggleButton.classList.toggle('bg-brand-600', !started);
-                toggleButton.classList.toggle('bg-red-700', started);
-                toggleButton.classList.toggle('glow-button', !started);
+                toggleButton.classList.toggle('is-on', !!started);
+                toggleButton.setAttribute('aria-label', started ? 'Отключить VPN' : 'Подключить VPN');
             }
             if (homeState) homeState.textContent = started ? 'СЛУЖБА ЗАПУЩЕНА' : 'НЕ ПОДКЛЮЧЕН';
             const warning = document.getElementById('home-vpn-warning');
@@ -1182,10 +1190,13 @@
           const sub={id:'sub_'+Date.now(),name,url,updatedAt:null,error:null};subscriptions.push(sub);persistSubscriptions();document.getElementById('subscription-name').value='';document.getElementById('subscription-url').value='';renderSubscriptionUi();refreshSubscription(sub.id);
         }
         function importSingleConfig(){
-          const url=document.getElementById('subscription-url').value.trim();
+          const field=document.getElementById('subscription-url');
+          const url=field.value.replace(/^\\uFEFF/,'').trim();
           if(!url){showToast('Вставь ссылку конфигурации','error');return;}
-          if(!addServerLink(url)){showToast('Не удалось добавить ссылку','error');return;}
-          persistSubscriptions();renderSubscriptionUi();showToast('Конфигурация добавлена');
+          if(!/^(vless|vmess|trojan|ss):\\/\\//i.test(url)){showToast('Для одиночного сервера нужна ссылка vless://, vmess://, trojan:// или ss://', 'error');return;}
+          if(savedServers.some(x=>x.link===url)){showToast('Этот сервер уже добавлен', 'error');return;}
+          if(!addServerLink(url)){showToast('Не удалось распознать ссылку. Проверь её целиком.', 'error');return;}
+          persistSubscriptions();renderSubscriptionUi();field.value='';showToast('Конфигурация добавлена');
         }
         async function refreshSubscription(id){
           const sub=subscriptions.find(x=>x.id===id);if(!sub)return;
