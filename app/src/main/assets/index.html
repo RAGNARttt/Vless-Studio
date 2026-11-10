@@ -133,6 +133,16 @@
             .vpn-control-panel .vpn-status { grid-column:auto; }
         }
 
+
+        /* VPN-client home and subscription manager */
+        .client-hero{background:radial-gradient(circle at 50% 42%,rgba(99,102,241,.22),transparent 42%),linear-gradient(145deg,#111827,#080b16);border:1px solid rgba(148,163,184,.16)}
+        .power-ring{width:190px;height:190px;border-radius:50%;border:1px solid rgba(129,140,248,.45);display:grid;place-items:center;margin:auto;box-shadow:0 0 55px rgba(99,102,241,.12),inset 0 0 35px rgba(99,102,241,.08)}
+        .power-core{width:145px;height:145px;border-radius:50%;background:radial-gradient(circle,#1e1b4b,#0b1020 72%);border:5px solid rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 0 5px rgba(255,255,255,.04),0 0 35px rgba(99,102,241,.2)}
+        .server-row{background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:13px;display:flex;align-items:center;gap:12px}
+        .server-row:active{border-color:#6366f1}
+        .sub-input{width:100%;background:#080d1b;border:1px solid rgba(148,163,184,.2);border-radius:13px;padding:13px;color:#e2e8f0;min-width:0}
+        .sub-input:focus{outline:none;border-color:#6366f1}
+        @media(max-width:767px){.client-hero{padding:20px 14px}.power-ring{width:175px;height:175px}.power-core{width:135px;height:135px}.client-action{width:100%}.server-row{padding:11px}}
     </style>
 </head>
 <body class="text-slate-200 min-h-screen flex flex-col justify-between">
@@ -172,9 +182,10 @@
 
         <!-- Mobile Navigation Bar -->
         <div class="md:hidden flex border-t border-slate-800/80 bg-slate-950/80 p-1 justify-around text-xs">
-            <button onclick="switchTab('parser')" id="mob-tab-parser" class="py-2 px-3 text-brand-400 font-medium">Парсер</button>
+            <button onclick="switchTab('home')" id="mob-tab-home" class="py-2 px-3 text-brand-400 font-medium">Главная</button>
+            <button onclick="switchTab('subscriptions')" id="mob-tab-subscriptions" class="py-2 px-3 text-slate-400 font-medium">Подписки</button>
+            <button onclick="switchTab('parser')" id="mob-tab-parser" class="py-2 px-3 text-slate-400 font-medium">Парсер</button>
             <button onclick="switchTab('builder')" id="mob-tab-builder" class="py-2 px-3 text-slate-400 font-medium">Конструктор</button>
-            <button onclick="switchTab('tools')" id="mob-tab-tools" class="py-2 px-3 text-slate-400 font-medium">Тесты</button>
         </div>
     </header>
 
@@ -195,8 +206,32 @@
         </div>
     </section>
 
-    <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+    <section class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+      <div id="tab-home" class="tab-content space-y-5">
+        <div class="client-hero rounded-3xl p-7 text-center">
+          <div class="flex justify-between items-center mb-5"><button onclick="switchTab('tools')" class="text-slate-400 p-2"><i class="fa-solid fa-gear text-xl"></i></button><button onclick="switchTab('subscriptions')" class="text-slate-300 p-2"><i class="fa-solid fa-plus text-2xl"></i></button></div>
+          <div class="power-ring"><div class="power-core"><i class="fa-solid fa-power-off text-3xl text-brand-400 mb-2"></i><div id="home-vpn-state" class="text-xs font-semibold text-slate-300">НЕ ПОДКЛЮЧЕН</div><div id="home-vpn-timer" class="text-lg text-white mt-1">--:--:--</div></div></div>
+          <p class="text-sm text-slate-400 mt-6">Текущее подключение</p>
+          <p id="home-active-server" class="text-white font-semibold mt-1">Сервер не выбран</p>
+          <div class="grid grid-cols-2 gap-3 mt-5"><button onclick="requestVpnConnect()" class="client-action glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-power-off mr-2"></i>Подключить</button><button onclick="requestVpnDisconnect()" class="client-action glass-panel rounded-xl py-3 font-semibold"><i class="fa-solid fa-stop mr-2"></i>Отключить</button></div>
+          <p class="text-xs text-amber-300 mt-4">VPN-движок Xray ещё не подключён к передаче трафика.</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4"><div class="flex justify-between items-center mb-3"><h2 class="text-lg font-bold text-white">Список серверов</h2><button onclick="switchTab('subscriptions')" class="text-brand-400 text-sm">Добавить +</button></div><div id="home-server-list" class="space-y-2"><p class="text-sm text-slate-400">Добавь подписку или отдельную конфигурацию.</p></div></div>
+      </div>
+    </section>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+      <div id="tab-subscriptions" class="tab-content hidden space-y-5">
+        <div class="glass-panel rounded-2xl p-5"><h2 class="text-xl font-bold text-white mb-2"><i class="fa-solid fa-layer-group text-brand-400 mr-2"></i>Подписки</h2><p class="text-sm text-slate-400 mb-4">Добавляй URL подписки. Ссылки и серверы сохраняются на устройстве.</p>
+          <input id="subscription-name" class="sub-input mb-3" placeholder="Название подписки (например, Мой VPN)">
+          <input id="subscription-url" class="sub-input mb-3" placeholder="https://example.com/subscription или ss:// / vless://">
+          <div class="grid grid-cols-2 gap-2"><button onclick="addSubscription()" class="glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-plus mr-2"></i>Добавить</button><button onclick="importSingleConfig()" class="glass-panel rounded-xl py-3 font-semibold"><i class="fa-solid fa-link mr-2"></i>Импорт ссылки</button></div>
+        </div>
+        <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Мои подписки</h3><button onclick="refreshAllSubscriptions()" class="text-brand-400 text-sm"><i class="fa-solid fa-rotate mr-1"></i>Обновить все</button></div><div id="subscription-list" class="space-y-3"><p class="text-sm text-slate-400">Подписок пока нет.</p></div></div>
+        <div class="glass-panel rounded-2xl p-5"><h3 class="font-bold text-white mb-3">Серверы</h3><div id="subscription-servers" class="space-y-2"><p class="text-sm text-slate-400">Серверы появятся после импорта.</p></div></div>
+      </div>
+
+        <!-- Existing tools container -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-grow w-full">
 
         <!-- ================= TAB 1: PARSER & DECODER ================= -->
         <div id="tab-parser" class="tab-content space-y-6">
@@ -578,6 +613,8 @@
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('[id^="mob-tab-"]').forEach(btn=>{btn.classList.remove('text-brand-400');btn.classList.add('text-slate-400');});
+            const mobileBtn=document.getElementById(`mob-tab-${tabId}`);if(mobileBtn){mobileBtn.classList.add('text-brand-400');mobileBtn.classList.remove('text-slate-400');}
 
             // Button Highlight logic
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1082,6 +1119,65 @@
             toggleSecurityOptions();
             showToast('Шаблон загружен в конструктор!');
         }
+
+        // Local subscription manager (client-side). Supports base64 subscription lists and direct proxy links.
+        const SUBS_KEY='vlessStudio.subscriptions.v1', SERVERS_KEY='vlessStudio.servers.v1';
+        let subscriptions=JSON.parse(localStorage.getItem(SUBS_KEY)||'[]');
+        let savedServers=JSON.parse(localStorage.getItem(SERVERS_KEY)||'[]');
+        let activeServerId=localStorage.getItem('vlessStudio.activeServer')||'';
+        function persistSubscriptions(){localStorage.setItem(SUBS_KEY,JSON.stringify(subscriptions));localStorage.setItem(SERVERS_KEY,JSON.stringify(savedServers));}
+        function safeDecodeSub(text){let t=text.trim();if(!t.includes('://')){try{t=decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/'))));}catch(e){try{t=atob(t);}catch(_){}}}return t;}
+        function configRemark(link){try{return decodeURIComponent((link.split('#')[1]||'').replace(/\+/g,' '))||new URL(link).hostname;}catch(e){return 'Сервер';}}
+        function addServerLink(link,subscriptionId='manual'){
+          const clean=link.trim();if(!/^(vless|vmess|trojan|ss):\/\//i.test(clean))return false;
+          if(savedServers.some(x=>x.link===clean))return false;
+          savedServers.push({id:'srv_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:configRemark(clean),link:clean,subscriptionId,protocol:clean.split(':')[0].toUpperCase()});
+          return true;
+        }
+        function addSubscription(){
+          const name=document.getElementById('subscription-name').value.trim()||'Моя подписка';
+          const url=document.getElementById('subscription-url').value.trim();
+          if(!url){showToast('Вставь ссылку подписки','error');return;}
+          if(/^(vless|vmess|trojan|ss):\/\//i.test(url)){if(!addServerLink(url)){showToast('Эта конфигурация уже добавлена','error');return;}persistSubscriptions();renderSubscriptionUi();showToast('Сервер добавлен');return;}
+          const sub={id:'sub_'+Date.now(),name,url,updatedAt:null,error:null};subscriptions.push(sub);persistSubscriptions();document.getElementById('subscription-name').value='';document.getElementById('subscription-url').value='';renderSubscriptionUi();refreshSubscription(sub.id);
+        }
+        function importSingleConfig(){
+          const url=document.getElementById('subscription-url').value.trim();
+          if(!url){showToast('Вставь ссылку конфигурации','error');return;}
+          if(!addServerLink(url)){showToast('Не удалось добавить ссылку','error');return;}
+          persistSubscriptions();renderSubscriptionUi();showToast('Конфигурация добавлена');
+        }
+        async function refreshSubscription(id){
+          const sub=subscriptions.find(x=>x.id===id);if(!sub)return;
+          sub.error=null;renderSubscriptionUi();
+          try{
+            const response=await fetch(sub.url,{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);
+            const body=safeDecodeSub(await response.text());
+            const links=body.split(/[\r\n]+/).map(x=>x.trim()).filter(x=>/^(vless|vmess|trojan|ss):\/\//i.test(x));
+            if(!links.length)throw new Error('В ответе не найдены поддерживаемые ссылки');
+            savedServers=savedServers.filter(x=>x.subscriptionId!==id);
+            links.forEach(link=>addServerLink(link,id));sub.updatedAt=new Date().toISOString();sub.error=null;persistSubscriptions();renderSubscriptionUi();showToast('Импортировано серверов: '+links.length);
+          }catch(e){sub.error=e.message||'Ошибка загрузки';persistSubscriptions();renderSubscriptionUi();showToast('Не удалось обновить: '+sub.error,'error');}
+        }
+        function refreshAllSubscriptions(){subscriptions.forEach(x=>refreshSubscription(x.id));}
+        function removeSubscription(id){subscriptions=subscriptions.filter(x=>x.id!==id);savedServers=savedServers.filter(x=>x.subscriptionId!==id);persistSubscriptions();renderSubscriptionUi();}
+        function removeServer(id){savedServers=savedServers.filter(x=>x.id!==id);if(activeServerId===id){activeServerId='';localStorage.removeItem('vlessStudio.activeServer');}persistSubscriptions();renderSubscriptionUi();}
+        function selectServer(id){
+          const srv=savedServers.find(x=>x.id===id);if(!srv)return;activeServerId=id;localStorage.setItem('vlessStudio.activeServer',id);
+          document.getElementById('home-active-server').textContent=srv.name;document.getElementById('import-url').value=srv.link;showToast('Выбран сервер: '+srv.name);
+          switchTab('home');
+        }
+        function renderSubscriptionUi(){
+          const subEl=document.getElementById('subscription-list'),srvEl=document.getElementById('subscription-servers'),homeEl=document.getElementById('home-server-list');
+          if(!subEl)return;
+          subEl.innerHTML=subscriptions.length?subscriptions.map(x=>'<div class="server-row"><div class="min-w-0 flex-1"><div class="font-semibold text-white truncate">'+escapeHtml(x.name)+'</div><div class="text-xs text-slate-400 truncate">'+escapeHtml(x.url)+'</div><div class="text-xs '+(x.error?'text-red-400':'text-slate-500')+' mt-1">'+(x.error?escapeHtml(x.error):(x.updatedAt?'Обновлено: '+new Date(x.updatedAt).toLocaleString():'Ожидает загрузки'))+'</div></div><button onclick="refreshSubscription(\''+x.id+'\')" class="text-brand-400 p-2" title="Обновить"><i class="fa-solid fa-rotate"></i></button><button onclick="removeSubscription(\''+x.id+'\')" class="text-red-400 p-2" title="Удалить"><i class="fa-solid fa-trash"></i></button></div>').join(''):'<p class="text-sm text-slate-400">Подписок пока нет.</p>';
+          const rows=savedServers.map(x=>'<div class="server-row"><div class="w-9 h-9 rounded-xl bg-brand-500/15 text-brand-400 grid place-items-center"><i class="fa-solid fa-server"></i></div><div class="min-w-0 flex-1"><div class="font-semibold text-white truncate">'+escapeHtml(x.name)+'</div><div class="text-xs text-slate-400">'+escapeHtml(x.protocol)+' · '+(x.subscriptionId==='manual'?'Вручную':'Подписка')+'</div></div><button onclick="selectServer(\''+x.id+'\')" class="text-brand-400 px-2">Выбрать</button><button onclick="removeServer(\''+x.id+'\')" class="text-slate-500 px-2"><i class="fa-solid fa-trash"></i></button></div>').join('');
+          srvEl.innerHTML=rows||'<p class="text-sm text-slate-400">Серверов пока нет.</p>';homeEl.innerHTML=rows||'<p class="text-sm text-slate-400">Добавь подписку или отдельную конфигурацию.</p>';
+          const active=savedServers.find(x=>x.id===activeServerId);document.getElementById('home-active-server').textContent=active?active.name:'Сервер не выбран';
+        }
+        function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+        document.addEventListener('DOMContentLoaded',()=>{renderSubscriptionUi();switchTab('home');});
+
     </script>
 </body>
 </html>
