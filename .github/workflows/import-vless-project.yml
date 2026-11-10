@@ -5,6 +5,7 @@ name: Import VLESS Studio project
 
 permissions:
   contents: write
+  workflows: write
 
 jobs:
   import:
