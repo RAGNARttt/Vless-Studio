@@ -150,6 +150,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void showAppPicker() {
+            runOnUiThread(() -> MainActivity.this.showVpnAppPicker());
+        }
+
+        @JavascriptInterface
         public void requestVpnPermission(String shareLink) {
             runOnUiThread(() -> {
                 pendingShareLink = shareLink == null ? "" : shareLink;
@@ -166,6 +171,55 @@ public class MainActivity extends Activity {
                 updateVpnUi(false, "VPN отключён");
             });
         }
+    }
+
+    private void showVpnAppPicker() {
+        try {
+            android.content.Intent launchIntent = new android.content.Intent(android.content.Intent.ACTION_MAIN, null);
+            launchIntent.addCategory(android.content.Intent.CATEGORY_LAUNCHER);
+            java.util.List<android.content.pm.ResolveInfo> apps = getPackageManager().queryIntentActivities(launchIntent, 0);
+            java.util.Collections.sort(apps, (a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                    String.valueOf(a.loadLabel(getPackageManager())), String.valueOf(b.loadLabel(getPackageManager()))));
+            java.util.List<String> labels = new java.util.ArrayList<>();
+            java.util.List<String> packages = new java.util.ArrayList<>();
+            for (android.content.pm.ResolveInfo app : apps) {
+                String pkg = app.activityInfo.packageName;
+                if (pkg.equals(getPackageName())) continue;
+                labels.add(String.valueOf(app.loadLabel(getPackageManager())));
+                packages.add(pkg);
+            }
+            android.content.SharedPreferences prefs = getSharedPreferences("vpn_settings", MODE_PRIVATE);
+            java.util.Set<String> saved = prefs.getStringSet("allowed_apps", java.util.Collections.emptySet());
+            boolean[] checked = new boolean[packages.size()];
+            for (int i = 0; i < packages.size(); i++) checked[i] = saved.contains(packages.get(i));
+            String[] labelArray = labels.toArray(new String[0]);
+            new android.app.AlertDialog.Builder(this)
+                    .setTitle("Приложения через VPN")
+                    .setMessage("Отметь приложения, трафик которых должен идти через VPN. Если ничего не выбрано — через VPN идут все приложения.")
+                    .setMultiChoiceItems(labelArray, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                    .setNegativeButton("Отмена", null)
+                    .setNeutralButton("Все приложения", (dialog, which) -> {
+                        prefs.edit().remove("allowed_apps").apply();
+                        notifyAppSelectionSaved(0);
+                    })
+                    .setPositiveButton("Сохранить", (dialog, which) -> {
+                        java.util.Set<String> selected = new java.util.HashSet<>();
+                        for (int i = 0; i < checked.length; i++) if (checked[i]) selected.add(packages.get(i));
+                        prefs.edit().putStringSet("allowed_apps", selected).apply();
+                        notifyAppSelectionSaved(selected.size());
+                    }).show();
+        } catch (Exception e) {
+            android.util.Log.e("VLESSStudio", "Cannot show app picker", e);
+            android.widget.Toast.makeText(this, "Не удалось открыть список приложений", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void notifyAppSelectionSaved(int count) {
+        String script = "onAppSelectionSaved(" + count + ")";
+        if (webView != null) webView.post(() -> webView.evaluateJavascript(script, null));
+        android.widget.Toast.makeText(this,
+                count == 0 ? "Через VPN: все приложения" : "Через VPN выбрано приложений: " + count + ". Переподключи VPN для применения.",
+                android.widget.Toast.LENGTH_LONG).show();
     }
 
     private void requestVpnPermission() {
