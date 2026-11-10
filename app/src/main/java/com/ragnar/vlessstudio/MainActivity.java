@@ -147,8 +147,12 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
+        if (webView != null) {
+            webView.evaluateJavascript("handleAndroidBack()", value -> {
+                if ("false".equals(value) || value == null) {
+                    MainActivity.super.onBackPressed();
+                }
+            });
         } else {
             super.onBackPressed();
         }
