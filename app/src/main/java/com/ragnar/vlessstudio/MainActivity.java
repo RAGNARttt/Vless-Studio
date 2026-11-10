@@ -2,6 +2,8 @@ package com.ragnar.vlessstudio;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.net.VpnService;
@@ -90,6 +92,23 @@ public class MainActivity extends Activity {
     }
 
     private final class AndroidVpnBridge {
+        @JavascriptInterface
+        public String getClipboardText() {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (clipboard != null && clipboard.hasPrimaryClip()) {
+                    ClipData clip = clipboard.getPrimaryClip();
+                    if (clip != null && clip.getItemCount() > 0) {
+                        CharSequence value = clip.getItemAt(0).coerceToText(MainActivity.this);
+                        return value == null ? "" : value.toString();
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.e("VLESSStudio", "Clipboard read failed", e);
+            }
+            return "";
+        }
+
         @JavascriptInterface
         public void requestVpnPermission() {
             runOnUiThread(() -> MainActivity.this.requestVpnPermission());
