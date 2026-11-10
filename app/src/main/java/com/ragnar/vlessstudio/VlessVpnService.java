@@ -55,8 +55,26 @@ public class VlessVpnService extends VpnService implements DialerController {
         return START_NOT_STICKY;
     }
 
+    private String getPhysicalInterfaceName() throws Exception {
+        android.net.ConnectivityManager cm =
+                (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (cm == null) throw new IllegalStateException("Не удалось получить ConnectivityManager");
+        android.net.Network network = cm.getActiveNetwork();
+        if (network == null) throw new IllegalStateException("Нет активной сети до запуска VPN");
+        android.net.LinkProperties properties = cm.getLinkProperties(network);
+        String name = properties == null ? null : properties.getInterfaceName();
+        if (name == null || name.trim().isEmpty() || name.startsWith("tun")) {
+            throw new IllegalStateException("Не удалось определить физический сетевой интерфейс Android");
+        }
+        Log.i(TAG, "Physical uplink interface: " + name);
+        return name;
+    }
+
     private void startVpn(String shareLink, int startId) {
         try {
+            // Resolve the physical uplink before establishing the VPN.
+            // Android Xray TUN requires a real interface name; "auto" is unsupported.
+            String physicalInterface = getPhysicalInterfaceName();
             Builder builder = new Builder()
                     .setSession("VLESS Studio")
                     .setMtu(1500)
@@ -128,9 +146,8 @@ public class VlessVpnService extends VpnService implements DialerController {
             JSONObject tunSettings = new JSONObject()
                     .put("name", "vlessstudio")
                     .put("mtu", 1500)
-                    // Keep Xray outbound sockets on the physical Android network.
-                    // Without this, default VPN routes can feed proxy sockets back into TUN.
-                    .put("autoOutboundsInterface", "auto");
+                    // Prevent Xray's own proxy sockets from looping back into this VPN.
+                    .put("autoOutboundsInterface", physicalInterface);
             JSONObject tunInbound = new JSONObject()
                     .put("tag", "tun-in")
                     .put("port", 0)
