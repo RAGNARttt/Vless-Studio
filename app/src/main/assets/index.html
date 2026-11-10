@@ -214,7 +214,7 @@
       <div id="tab-subscriptions" class="tab-content hidden space-y-5">
         <div class="glass-panel rounded-2xl p-5"><h2 class="text-xl font-bold text-white mb-2"><i class="fa-solid fa-layer-group text-brand-400 mr-2"></i>Подписки</h2><p class="text-sm text-slate-400 mb-4">Добавляй URL подписки. Ссылки и серверы сохраняются на устройстве.</p>
           <input id="subscription-name" class="sub-input mb-3" placeholder="Название подписки (например, Мой VPN)">
-          <input id="subscription-url" class="sub-input mb-3" placeholder="https://example.com/subscription или ss:// / vless://">
+          <div class="flex gap-2 mb-3"><input id="subscription-url" class="sub-input flex-1" placeholder="https://example.com/subscription или ss:// / vless://"><button type="button" onclick="pasteSubscriptionClipboard()" class="glass-panel rounded-xl px-4 text-brand-400" title="Вставить из буфера"><i class="fa-regular fa-paste"></i></button></div>
           <div class="grid grid-cols-2 gap-2"><button onclick="addSubscription()" class="glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-plus mr-2"></i>Добавить</button><button onclick="importSingleConfig()" class="glass-panel rounded-xl py-3 font-semibold"><i class="fa-solid fa-link mr-2"></i>Импорт ссылки</button></div>
         </div>
         <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Мои подписки</h3><button onclick="refreshAllSubscriptions()" class="text-brand-400 text-sm"><i class="fa-solid fa-rotate mr-1"></i>Обновить все</button></div><div id="subscription-list" class="space-y-3"><p class="text-sm text-slate-400">Подписок пока нет.</p></div></div>
@@ -660,16 +660,38 @@
             document.body.removeChild(textarea);
         }
 
-        async function pasteFromClipboard() {
+        async function readClipboardText() {
             try {
+                if (window.AndroidVpnBridge && AndroidVpnBridge.getClipboardText) {
+                    return AndroidVpnBridge.getClipboardText() || '';
+                }
                 if (navigator.clipboard && navigator.clipboard.readText) {
-                    const text = await navigator.clipboard.readText();
-                    document.getElementById('import-url').value = text;
-                    showToast('Вставлено из буфера');
+                    return await navigator.clipboard.readText();
                 }
             } catch (err) {
-                showToast('Вставьте ссылку вручную через Ctrl+V', 'error');
+                console.warn('Clipboard read failed', err);
             }
+            return '';
+        }
+
+        async function pasteFromClipboard() {
+            const text = (await readClipboardText()).trim();
+            if (!text) {
+                showToast('Буфер обмена пуст или доступ запрещён', 'error');
+                return;
+            }
+            document.getElementById('import-url').value = text;
+            showToast('Вставлено из буфера');
+        }
+
+        async function pasteSubscriptionClipboard() {
+            const text = (await readClipboardText()).trim();
+            if (!text) {
+                showToast('Буфер обмена пуст или доступ запрещён', 'error');
+                return;
+            }
+            document.getElementById('subscription-url').value = text;
+            showToast('Ссылка вставлена из буфера');
         }
 
 
@@ -720,11 +742,10 @@
             if (homeState) homeState.textContent = started ? 'СЛУЖБА ЗАПУЩЕНА' : 'НЕ ПОДКЛЮЧЕН';
             const warning = document.getElementById('home-vpn-warning');
             if (warning) warning.textContent = started
-                ? 'Служба Android запущена, но Xray-туннель не установлен и трафик не проходит.'
-                : 'Xray пока не запущен: реальный VPN-туннель ещё не установлен.';
-            if (homeState) homeState.textContent = 'НЕ ПОДКЛЮЧЕН';
+                ? 'Служба Android запущена. Xray-туннель пока не подключён, трафик не маршрутизируется.'
+                : 'Служба остановлена. Xray-туннель не активен.';
             const timer = document.getElementById('home-vpn-timer');
-            if (timer) timer.textContent = 'Нет активного туннеля';
+            if (timer) timer.textContent = 'Туннель не активен';
         }
 
         // ================= VLESS / VMESS / TROJAN PARSER LOGIC =================
