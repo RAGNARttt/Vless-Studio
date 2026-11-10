@@ -95,6 +95,44 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(99, 102, 241, 0.7);
         }
+
+        /* Mobile/Android safe-area and responsive layout */
+        html { min-height:100%; -webkit-text-size-adjust:100%; }
+        body { min-height:100dvh; overflow-x:hidden; }
+        header { padding-top: env(safe-area-inset-top, 0px); }
+        main { min-width:0; }
+        input, select, textarea, button { max-width:100%; }
+        button, a { touch-action:manipulation; }
+        pre { white-space:pre; overflow-x:auto; max-width:100%; }
+        .vpn-control-panel { display:flex; flex-wrap:wrap; align-items:center; gap:.65rem; }
+        .vpn-control-panel button { min-height:44px; }
+        @media (max-width: 767px) {
+            header { position:sticky; top:0; }
+            header > div:first-child { min-height:68px; height:auto; padding:.55rem .75rem; gap:.5rem; flex-wrap:wrap; }
+            header > div:first-child > div:first-child { min-width:0; flex:1 1 auto; }
+            header > div:first-child > div:first-child .text-lg { font-size:1rem; }
+            header > div:first-child > div:first-child .text-xs { display:inline-block; font-size:.58rem; margin-left:.15rem; }
+            header > div:first-child > div:last-child { gap:.35rem; }
+            header > div:first-child > div:last-child a { padding:.45rem .55rem; }
+            header nav { display:none !important; }
+            header .md\:hidden { display:flex !important; }
+            header .md\:hidden button { flex:1; min-height:42px; padding:.65rem .2rem; font-size:.75rem; }
+            main { padding:1rem .75rem 2rem !important; }
+            main .glass-panel { min-width:0; }
+            main .glass-panel.rounded-2xl { padding:1rem !important; }
+            h2 { font-size:1.1rem !important; line-height:1.45 !important; }
+            .vpn-control-panel { display:grid; grid-template-columns:1fr 1fr; }
+            .vpn-control-panel .vpn-status { grid-column:1 / -1; }
+            .vpn-control-panel button { width:100%; }
+            footer { padding-bottom:calc(1rem + env(safe-area-inset-bottom, 0px)); }
+        }
+        @media (max-width: 380px) {
+            header > div:first-child > div:first-child .text-xs { display:none; }
+            header > div:first-child > div:last-child a span { display:none; }
+            .vpn-control-panel { grid-template-columns:1fr; }
+            .vpn-control-panel .vpn-status { grid-column:auto; }
+        }
+
     </style>
 </head>
 <body class="text-slate-200 min-h-screen flex flex-col justify-between">
@@ -139,6 +177,23 @@
             <button onclick="switchTab('tools')" id="mob-tab-tools" class="py-2 px-3 text-slate-400 font-medium">Тесты</button>
         </div>
     </header>
+
+
+    <!-- VPN controls: service permission scaffold; tunnel integration is the next stage -->
+    <section class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+        <div class="glass-panel rounded-2xl p-4 vpn-control-panel">
+            <div class="vpn-status flex-1 min-w-0">
+                <div class="text-sm font-semibold text-white"><i class="fa-solid fa-shield-halved text-brand-400 mr-2"></i>VPN-подключение</div>
+                <div id="vpn-status" class="text-xs text-amber-300 mt-1">Служба не запущена · передача трафика ещё не подключена</div>
+            </div>
+            <button id="vpn-connect-btn" onclick="requestVpnConnect()" class="glow-button bg-brand-600 hover:bg-brand-500 text-white px-4 py-3 rounded-xl text-sm font-semibold">
+                <i class="fa-solid fa-power-off mr-2"></i>Подключить
+            </button>
+            <button id="vpn-disconnect-btn" onclick="requestVpnDisconnect()" class="glass-panel border border-slate-700 text-slate-300 px-4 py-3 rounded-xl text-sm font-semibold">
+                <i class="fa-solid fa-stop mr-2"></i>Отключить
+            </button>
+        </div>
+    </section>
 
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
@@ -587,6 +642,33 @@
             } catch (err) {
                 showToast('Вставьте ссылку вручную через Ctrl+V', 'error');
             }
+        }
+
+
+        // Android VPN permission bridge. The current service is a foundation only:
+        // it does not route user traffic until libXray/TUN integration is completed.
+        function requestVpnConnect() {
+            if (window.AndroidVpnBridge && AndroidVpnBridge.requestVpnPermission) {
+                AndroidVpnBridge.requestVpnPermission();
+            } else {
+                showToast('Запрос VPN доступен только в установленном APK', 'error');
+            }
+        }
+        function requestVpnDisconnect() {
+            if (window.AndroidVpnBridge && AndroidVpnBridge.stopVpn) {
+                AndroidVpnBridge.stopVpn();
+                setVpnUiState(false);
+            } else {
+                showToast('Отключение VPN доступно только в APK', 'error');
+            }
+        }
+        function setVpnUiState(started) {
+            const status = document.getElementById('vpn-status');
+            if (!status) return;
+            status.textContent = started
+                ? 'Служба запущена · туннель Xray пока не передаёт трафик'
+                : 'Служба не запущена · передача трафика ещё не подключена';
+            status.className = started ? 'text-xs text-amber-300 mt-1' : 'text-xs text-slate-400 mt-1';
         }
 
         // ================= VLESS / VMESS / TROJAN PARSER LOGIC =================
