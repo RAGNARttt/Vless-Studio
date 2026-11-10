@@ -1,5 +1,3 @@
-
-
 name: Build VLESS Studio APK
 
 on:
@@ -11,7 +9,7 @@ on:
       - 'app/**'
       - '*.gradle'
       - 'settings.gradle'
-      - '.github/workflows/build-apk.yml'
+      - '.github/workflows/**'
 
 permissions:
   contents: read
@@ -21,14 +19,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Setup JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: sdkmanager "ndk;27.2.12479018"
+
+      - name: Build libXray
+        run: |
+          git clone --depth 1 https://github.com/XTLS/libXray.git
+          cd libXray
+          python3 build/main.py android
+          mkdir -p ../app/libs
+          cp libXray.aar ../app/libs/
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -43,4 +65,3 @@ jobs:
         with:
           name: VLESS-Studio-APK
           path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
