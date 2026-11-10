@@ -127,7 +127,10 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject tunSettings = new JSONObject()
                     .put("name", "vlessstudio")
-                    .put("mtu", 1500);
+                    .put("mtu", 1500)
+                    // Keep Xray outbound sockets on the physical Android network.
+                    // Without this, default VPN routes can feed proxy sockets back into TUN.
+                    .put("autoOutboundsInterface", "auto");
             JSONObject tunInbound = new JSONObject()
                     .put("tag", "tun-in")
                     .put("port", 0)
