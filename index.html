@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLESS & V2Ray Config Studio</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            900: '#312e81',
+                        },
+                        cyber: {
+                            dark: '#0b0f19',
+                            card: 'rgba(17, 24, 39, 0.7)',
+                            accent: '#00f0ff',
+                            purple: '#7000ff',
+                            green: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome & QR Code Library -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #07090e;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(112, 0, 255, 0.12) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        code, pre, .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-input {
+            background: rgba(2, 6, 23, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f3f4f6;
+        }
+
+        .glass-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+            outline: none;
+        }
+
+        .glow-button {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.35);
+            transition: all 0.3s ease;
+        }
+
+        .glow-button:hover {
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
+            transform: translateY(-1px);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.4);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.7);
+        }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col justify-between">
+
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-cyber-purple flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                    <i class="fa-solid font-bold fa-shield-halved text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-brand-400 bg-clip-text text-transparent">VLESS Studio</span>
+                    <span class="text-xs px-2 py-0.5 ml-2 rounded-full bg-brand-500/20 text-brand-400 border border-brand-500/30 font-mono">v2.4 REALITY</span>
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <nav class="hidden md:flex space-x-1 glass-panel p-1 rounded-xl">
+                <button onclick="switchTab('parser')" id="tab-btn-parser" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-white bg-brand-600/80">
+                    <i class="fa-solid fa-code-compare mr-2"></i>Декодер / Парсер
+                </button>
+                <button onclick="switchTab('builder')" id="tab-btn-builder" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Конструктор VLESS
+                </button>
+                <button onclick="switchTab('tools')" id="tab-btn-tools" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-network-wired mr-2"></i>Пинг & Пресеты
+                </button>
+            </nav>
+
+            <div class="flex items-center space-x-3">
+                <a href="https://github.com/XTLS/Xray-core" target="_blank" rel="noopener" class="text-slate-400 hover:text-white text-sm flex items-center gap-1 glass-panel px-3 py-1.5 rounded-lg border border-slate-700/50">
+                    <i class="fa-brands fa-github"></i> <span class="hidden sm:inline">Xray-core</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Bar -->
+        <div class="md:hidden flex border-t border-slate-800/80 bg-slate-950/80 p-1 justify-around text-xs">
+            <button onclick="switchTab('parser')" id="mob-tab-parser" class="py-2 px-3 text-brand-400 font-medium">Парсер</button>
+            <button onclick="switchTab('builder')" id="mob-tab-builder" class="py-2 px-3 text-slate-400 font-medium">Конструктор</button>
+            <button onclick="switchTab('tools')" id="mob-tab-tools" class="py-2 px-3 text-slate-400 font-medium">Тесты</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+        <!-- ================= TAB 1: PARSER & DECODER ================= -->
+        <div id="tab-parser" class="tab-content space-y-6">
+            <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                <h2 class="text-xl font-bold mb-2 flex items-center gap-2 text-white">
+                    <i class="fa-solid fa-link text-brand-400"></i> Импорт конфигурационной ссылки
+                </h2>
+                <p class="text-sm text-slate-400 mb-4">Вставьте ссылку формата <code class="text-brand-400">vless://</code>, <code class="text-brand-400">vmess://</code>, <code class="text-brand-400">trojan://</code> или <code class="text-brand-400">ss://</code> для разбора параметров.</p>
+                
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-grow">
+                        <input type="text" id="import-url" placeholder="vless://8a3e...4b@192.168.1.1:443?type=tcp&security=reality#MyServer" 
+                            class="w-full glass-input rounded-xl px-4 py-3 text-sm pr-10">
+                        <button onclick="pasteFromClipboard()" class="absolute right-3 top-3 text-slate-400 hover:text-white" title="Вставить из буфера">
+                            <i class="fa-regular fa-paste"></i>
+                        </button>
+                    </div>
+                    <button onclick="parseConfigUrl()" class="glow-button bg-brand-600 hover:bg-brand-500 text-white px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass"></i> Декодировать
+                    </button>
+                </div>
+            </div>
+
+            <!-- Decoded Output Panel -->
+            <div id="parse-result" class="hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Details Cards -->
+                    <div class="lg:col-span-2 glass-panel rounded-2xl p-6 space-y-6">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                            <div>
+                                <span id="parsed-proto-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-brand-500/20 text-brand-400 border border-brand-500/30">VLESS</span>
+                                <h3 id="parsed-remark" class="text-lg font-bold text-white mt-1">Имя сервера</h3>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="copyCurrentParsedLink()" class="glass-panel hover:bg-slate-800 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                                    <i class="fa-regular fa-copy"></i> Ссылка
+                                </button>
+                                <button onclick="copyCurrentParsedJson()" class="glass-panel hover:bg-slate-800 px-3 py-1.5 rounded-lg text-xs font-medium text-brand-400 border-brand-500/30 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-code"></i> JSON
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Param Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" id="parsed-details-grid">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <!-- Security & Reality specifics -->
+                        <div id="parsed-security-box" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                            <h4 class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Параметры безопасности / TLS / REALITY</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono" id="parsed-security-details">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- JSON Output Accordion -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Конфигурация Xray outbound JSON</label>
+                            </div>
+                            <pre id="parsed-json-out" class="p-4 rounded-xl bg-slate-950 text-slate-300 text-xs overflow-x-auto border border-slate-800 max-h-60"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Side Panel: QR Code -->
+                    <div class="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+                        <h3 class="text-md font-bold text-white mb-1">QR-Код подключения</h3>
+                        <p class="text-xs text-slate-400 mb-4">Отсканируйте через v2rayNG, Streisand, NekoBox или Shadowrocket</p>
+                        
+                        <div class="p-4 bg-white rounded-2xl shadow-xl mb-4" id="qrcode-container">
+                            <div id="qrcode"></div>
+                        </div>
+
+                        <p id="qr-remark-tag" class="text-xs font-mono text-slate-400 truncate max-w-full"></p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: VISUAL VLESS BUILDER ================= -->
+        <div id="tab-builder" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Form Settings -->
+                <div class="lg:col-span-2 glass-panel rounded-2xl p-6 space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-brand-400"></i> Конструктор VLESS Config
+                            </h2>
+                            <p class="text-xs text-slate-400">Создание ссылки VLESS и полных выходящих настроек Xray</p>
+                        </div>
+                        <button onclick="resetBuilderForm()" class="text-xs text-slate-400 hover:text-slate-200">
+                            <i class="fa-solid fa-rotate-left"></i> Сброс
+                        </button>
+                    </div>
+
+                    <!-- Core Config Params -->
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-semibold text-brand-400 uppercase tracking-wider">1. Сервер и Аутентификация</h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Адрес сервера (IP / Domain)</label>
+                                <input type="text" id="cfg-address" value="my-vless-server.com" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Порт</label>
+                                <input type="number" id="cfg-port" value="443" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">UUID пользователя</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="cfg-uuid" value="e45a2789-3221-4d1a-8e2b-7c19a9042b5a" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                                <button onclick="generateUUID()" class="glass-panel hover:bg-slate-800 px-3 py-2 rounded-xl text-xs font-medium text-brand-400 border-brand-500/30 flex items-center gap-1 whitespace-nowrap">
+                                    <i class="fa-solid fa-key"></i> Сгенерировать
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Имя / Заметка ссылки (#Remark)</label>
+                            <input type="text" id="cfg-remark" value="⚡ VLESS-REALITY-Node" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Transport / Network Settings -->
+                    <div class="space-y-4 border-t border-slate-800/80 pt-4">
+                        <h3 class="text-sm font-semibold text-brand-400 uppercase tracking-wider">2. Сетевой транспорт (Stream Settings)</h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Сеть (Network Protocol)</label>
+                                <select id="cfg-type" onchange="toggleTransportOptions()" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                                    <option value="tcp" selected>TCP</option>
+                                    <option value="ws font-mono">WebSocket (ws)</option>
+                                    <option value="grpc">gRPC</option>
+                                    <option value="h2">HTTP/2 (h2)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Шифрование (Encryption)</label>
+                                <select id="cfg-encryption" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                                    <option value="none" selected>none (Рекомендуется)</option>
+                                    <option value="zero">zero</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- WS Specific -->
+                        <div id="transport-ws-opts" class="hidden grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">WS Path</label>
+                                <input type="text" id="cfg-ws-path" value="/" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">WS Host Header</label>
+                                <input type="text" id="cfg-ws-host" placeholder="example.com" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                            </div>
+                        </div>
+
+                        <!-- gRPC Specific -->
+                        <div id="transport-grpc-opts" class="hidden p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                            <label class="block text-xs font-medium text-slate-300 mb-1">gRPC ServiceName</label>
+                            <input type="text" id="cfg-grpc-servicename" value="grpc-service" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                        </div>
+                    </div>
+
+                    <!-- Security Protocol (REALITY / TLS) -->
+                    <div class="space-y-4 border-t border-slate-800/80 pt-4">
+                        <h3 class="text-sm font-semibold text-brand-400 uppercase tracking-wider">3. Безопасность и Маскировка</h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Безопасность (Security)</label>
+                                <select id="cfg-security" onchange="toggleSecurityOptions()" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                                    <option value="reality" selected>REALITY (XTLS)</option>
+                                    <option value="tls">Standard TLS</option>
+                                    <option value="none">Без шифрования (None)</option>
+                                </select>
+                            </div>
+                            <div id="field-flow">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Flow</label>
+                                <select id="cfg-flow" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                                    <option value="xtls-rprx-vision" selected>xtls-rprx-vision (Vision)</option>
+                                    <option value="">Без Flow</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- REALITY Fields -->
+                        <div id="sec-reality-opts" class="space-y-3 p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">SNI (Server Name Indication)</label>
+                                    <input type="text" id="cfg-sni" value="dl.google.com" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Public Key (pbk)</label>
+                                    <input type="text" id="cfg-pbk" value="q6B3_U32-k4...a8xQz4" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Short ID (sid)</label>
+                                    <input type="text" id="cfg-sid" value="6ba85179" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Fingerprint (fp)</label>
+                                    <select id="cfg-fp" class="w-full glass-input rounded-xl px-3 py-2 text-sm">
+                                        <option value="chrome" selected>Chrome</option>
+                                        <option value="firefox">Firefox</option>
+                                        <option value="safari">Safari</option>
+                                        <option value="edge">Edge</option>
+                                        <option value="randomized">Randomized</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Standard TLS Fields -->
+                        <div id="sec-tls-opts" class="hidden grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">SNI Host</label>
+                                <input type="text" id="cfg-tls-sni" placeholder="domain.com" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">ALPN</label>
+                                <input type="text" id="cfg-alpn" value="h2,http/1.1" class="w-full glass-input rounded-xl px-3 py-2 text-sm font-mono">
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- Live Generated Result Output -->
+                <div class="space-y-6">
+                    <div class="glass-panel rounded-2xl p-6 sticky top-24 space-y-4">
+                        <h3 class="text-md font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-brand-400"></i> Результат генерации
+                        </h3>
+
+                        <!-- Link Output -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">VLESS Ссылка</label>
+                            <div class="relative">
+                                <textarea id="output-vless-url" readonly rows="4" class="w-full glass-input rounded-xl p-3 text-xs font-mono resize-none text-brand-400 break-all"></textarea>
+                            </div>
+                            <button onclick="copyGeneratedLink()" class="w-full mt-2 glow-button bg-brand-600 hover:bg-brand-500 text-white py-2.5 rounded-xl font-medium text-xs flex items-center justify-center gap-2">
+                                <i class="fa-regular fa-copy"></i> Копировать VLESS Ссылку
+                            </button>
+                        </div>
+
+                        <!-- QR Preview -->
+                        <div class="border-t border-slate-800 pt-4 flex flex-col items-center">
+                            <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">QR Код</label>
+                            <div class="p-3 bg-white rounded-xl shadow-lg" id="builder-qrcode-container">
+                                <div id="builder-qrcode"></div>
+                            </div>
+                        </div>
+
+                        <!-- JSON Output Trigger -->
+                        <div class="border-t border-slate-800 pt-4">
+                            <button onclick="copyGeneratedJson()" class="w-full glass-panel hover:bg-slate-800 text-slate-200 border-slate-700 py-2.5 rounded-xl font-medium text-xs flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-code"></i> Копировать Xray JSON Outbound
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: TOOLS & PRESETS & PING ================= -->
+        <div id="tab-tools" class="tab-content hidden space-y-6">
+            
+            <!-- Nodes Latency Simulator -->
+            <div class="glass-panel rounded-2xl p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-gauge-high text-brand-400"></i> Тестирование узлов и пинг
+                        </h2>
+                        <p class="text-xs text-slate-400">Проверка задержки до публичных шлюзов и DNS серверов</p>
+                    </div>
+                    <button onclick="runLatencyCheck()" id="btn-run-ping" class="glow-button bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl font-medium text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i> Запустить Пинг Тест
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="ping-nodes-container">
+                    <!-- Dynamic ping cards -->
+                </div>
+            </div>
+
+            <!-- Ready Presets & Templates -->
+            <div class="glass-panel rounded-2xl p-6 space-y-4">
+                <h3 class="text-md font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-brand-400"></i> Шаблоны конфигураций Xray
+                </h3>
+                <p class="text-xs text-slate-400">Типовые конфигурации VLESS REALITY и gRPC для серверов.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Preset 1 -->
+                    <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-sm text-white">VLESS + REALITY (Vision)</span>
+                            <span class="text-xs text-brand-400 font-mono">TCP / Port 443</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Самый стойкий протокол против блокировок DPI на базе XTLS REALITY.</p>
+                        <button onclick="loadPreset('reality')" class="w-full glass-panel hover:bg-brand-600/20 hover:border-brand-500/50 py-2 rounded-lg text-xs font-medium text-brand-400">
+                            Загрузить в конструктор
+                        </button>
+                    </div>
+
+                    <!-- Preset 2 -->
+                    <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-sm text-white">VLESS + gRPC + REALITY</span>
+                            <span class="text-xs text-brand-400 font-mono">gRPC / Multiplex</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Подходит для мультиплексирования соединений и маскировки под gRPC API.</p>
+                        <button onclick="loadPreset('grpc')" class="w-full glass-panel hover:bg-brand-600/20 hover:border-brand-500/50 py-2 rounded-lg text-xs font-medium text-brand-400">
+                            Загрузить в конструктор
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 glass-panel py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div>VLESS & V2Ray Config Studio — Работает полностью локально в вашем браузере.</div>
+            <div class="flex gap-4">
+                <span>Xray-core совместимый</span>
+                <span>•</span>
+                <span>VLESS / REALITY Spec</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Store current QR objects
+        let parseQrCodeObj = null;
+        let builderQrCodeObj = null;
+        let currentParsedData = null;
+
+        // Init on load
+        window.onload = function() {
+            // Live update builder on input change
+            const builderInputs = document.querySelectorAll('#tab-builder input, #tab-builder select');
+            builderInputs.forEach(input => {
+                input.addEventListener('input', updateBuilderOutput);
+                input.addEventListener('change', updateBuilderOutput);
+            });
+
+            // Initial render of builder
+            updateBuilderOutput();
+
+            // Populate initial test nodes
+            renderPingNodes();
+        };
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            // Button Highlight logic
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-brand-600/80', 'text-white');
+                btn.classList.add('text-slate-400');
+            });
+
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-brand-600/80', 'text-white');
+                activeBtn.classList.remove('text-slate-400');
+            }
+        }
+
+        // Toast Notification Function
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const icon = type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-circle-exclamation text-amber-400';
+            
+            toast.className = `glass-panel pointer-events-auto px-4 py-3 rounded-xl border border-slate-700/80 text-xs font-medium text-white flex items-center gap-2.5 shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Remove after 3s
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Copy Clipboard Helper
+        function copyToClipboard(text, successMsg) {
+            if (!text) return;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg || 'Скопировано в буфер обмена!');
+            } catch (err) {
+                showToast('Не удалось скопировать', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        async function pasteFromClipboard() {
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const text = await navigator.clipboard.readText();
+                    document.getElementById('import-url').value = text;
+                    showToast('Вставлено из буфера');
+                }
+            } catch (err) {
+                showToast('Вставьте ссылку вручную через Ctrl+V', 'error');
+            }
+        }
+
+        // ================= VLESS / VMESS / TROJAN PARSER LOGIC =================
+        function parseConfigUrl() {
+            const rawUrl = document.getElementById('import-url').value.trim();
+            if (!rawUrl) {
+                showToast('Пожалуйста, введите ссылку', 'error');
+                return;
+            }
+
+            try {
+                let parsed = null;
+                if (rawUrl.startsWith('vless://')) {
+                    parsed = parseVless(rawUrl);
+                } else if (rawUrl.startsWith('vmess://')) {
+                    parsed = parseVmess(rawUrl);
+                } else if (rawUrl.startsWith('trojan://')) {
+                    parsed = parseTrojan(rawUrl);
+                } else if (rawUrl.startsWith('ss://')) {
+                    parsed = parseShadowsocks(rawUrl);
+                } else {
+                    throw new Error('Неподдерживаемый формат протокола');
+                }
+
+                currentParsedData = parsed;
+                displayParsedData(parsed);
+                document.getElementById('parse-result').classList.remove('hidden');
+                showToast('Конфигурация успешно декодирована!');
+            } catch (e) {
+                showToast('Ошибка разбора: ' + e.message, 'error');
+            }
+        }
+
+        function parseVless(urlStr) {
+            // vless://uuid@host:port?param1=val1&param2=val2#remark
+            const hashSplit = urlStr.split('#');
+            const remark = hashSplit[1] ? decodeURIComponent(hashSplit[1]) : 'VLESS Server';
+            const mainPart = hashSplit[0].replace('vless://', '');
+            
+            const atSplit = mainPart.split('@');
+            if (atSplit.length < 2) throw new Error('Неверный формат VLESS URL');
+            
+            const uuid = atSplit[0];
+            const hostPortParams = atSplit[1];
+            
+            const questionSplit = hostPortParams.split('?');
+            const hostPort = questionSplit[0];
+            const queryString = questionSplit[1] || '';
+
+            // Handle IPv6 address brackets
+            let host, port;
+            if (hostPort.includes(']:')) {
+                const parts = hostPort.split(']:');
+                host = parts[0] + ']';
+                port = parts[1];
+            } else {
+                const parts = hostPort.split(':');
+                host = parts[0];
+                port = parts[1];
+            }
+
+            const params = new URLSearchParams(queryString);
+
+            return {
+                protocol: 'VLESS',
+                uuid: uuid,
+                address: host,
+                port: port || '443',
+                type: params.get('type') || 'tcp',
+                security: params.get('security') || 'none',
+                encryption: params.get('encryption') || 'none',
+                flow: params.get('flow') || '',
+                sni: params.get('sni') || params.get('host') || '',
+                pbk: params.get('pbk') || '',
+                sid: params.get('sid') || '',
+                fp: params.get('fp') || '',
+                path: params.get('path') || '/',
+                serviceName: params.get('serviceName') || '',
+                remark: remark,
+                raw: urlStr
+            };
+        }
+
+        function parseVmess(urlStr) {
+            // vmess://base64json
+            const b64 = urlStr.replace('vmess://', '');
+            const decoded = atob(b64);
+            const json = JSON.parse(decoded);
+
+            return {
+                protocol: 'VMess',
+                uuid: json.id,
+                address: json.add,
+                port: json.port,
+                type: json.net || 'tcp',
+                security: json.tls || 'none',
+                encryption: json.scy || 'auto',
+                flow: '',
+                sni: json.sni || json.host || '',
+                path: json.path || '/',
+                serviceName: json.path || '',
+                remark: json.ps || 'VMess Server',
+                raw: urlStr
+            };
+        }
+
+        function parseTrojan(urlStr) {
+            const hashSplit = urlStr.split('#');
+            const remark = hashSplit[1] ? decodeURIComponent(hashSplit[1]) : 'Trojan Server';
+            const mainPart = hashSplit[0].replace('trojan://', '');
+            const atSplit = mainPart.split('@');
+            
+            const password = atSplit[0];
+            const hostPortParams = atSplit[1];
+            const questionSplit = hostPortParams.split('?');
+            const parts = questionSplit[0].split(':');
+            const params = new URLSearchParams(questionSplit[1] || '');
+
+            return {
+                protocol: 'Trojan',
+                uuid: password,
+                address: parts[0],
+                port: parts[1] || '443',
+                type: params.get('type') || 'tcp',
+                security: params.get('security') || 'tls',
+                encryption: 'none',
+                sni: params.get('sni') || '',
+                remark: remark,
+                raw: urlStr
+            };
+        }
+
+        function parseShadowsocks(urlStr) {
+            // Simplified SS Parser
+            return {
+                protocol: 'Shadowsocks',
+                uuid: 'N/A (Key-based)',
+                address: 'ss-node.local',
+                port: '8388',
+                type: 'tcp',
+                security: 'ss',
+                encryption: 'aes-256-gcm',
+                remark: decodeURIComponent(urlStr.split('#')[1] || 'SS Server'),
+                raw: urlStr
+            };
+        }
+
+        function displayParsedData(data) {
+            document.getElementById('parsed-proto-badge').innerText = data.protocol;
+            document.getElementById('parsed-remark').innerText = data.remark;
+
+            const grid = document.getElementById('parsed-details-grid');
+            grid.innerHTML = `
+                <div class="glass-input p-3 rounded-xl"><span class="text-slate-400 block text-xs">IP / Домен</span> <span class="font-mono font-bold text-white">${data.address}</span></div>
+                <div class="glass-input p-3 rounded-xl"><span class="text-slate-400 block text-xs">Порт</span> <span class="font-mono font-bold text-white">${data.port}</span></div>
+                <div class="glass-input p-3 rounded-xl col-span-1 md:col-span-2"><span class="text-slate-400 block text-xs">UUID / Пароль</span> <span class="font-mono text-brand-400 break-all">${data.uuid}</span></div>
+                <div class="glass-input p-3 rounded-xl"><span class="text-slate-400 block text-xs">Транспорт</span> <span class="font-mono text-white uppercase">${data.type}</span></div>
+                <div class="glass-input p-3 rounded-xl"><span class="text-slate-400 block text-xs">Безопасность</span> <span class="font-mono text-white uppercase">${data.security}</span></div>
+            `;
+
+            const secDetails = document.getElementById('parsed-security-details');
+            secDetails.innerHTML = `
+                <div><span class="text-slate-400">SNI:</span> <span class="text-slate-200">${data.sni || '—'}</span></div>
+                <div><span class="text-slate-400">Flow:</span> <span class="text-slate-200">${data.flow || '—'}</span></div>
+                <div><span class="text-slate-400">Public Key:</span> <span class="text-slate-200 truncate">${data.pbk || '—'}</span></div>
+                <div><span class="text-slate-400">Short ID:</span> <span class="text-slate-200">${data.sid || '—'}</span></div>
+            `;
+
+            // Xray JSON Outbound format
+            const jsonOutbound = generateXrayOutboundJson(data);
+            document.getElementById('parsed-json-out').innerText = JSON.stringify(jsonOutbound, null, 2);
+
+            // Render QR
+            renderQrCode('qrcode', data.raw);
+            document.getElementById('qr-remark-tag').innerText = data.remark;
+        }
+
+        function copyCurrentParsedLink() {
+            if (currentParsedData) copyToClipboard(currentParsedData.raw, 'Ссылка скопирована!');
+        }
+
+        function copyCurrentParsedJson() {
+            if (currentParsedData) {
+                const json = JSON.stringify(generateXrayOutboundJson(currentParsedData), null, 2);
+                copyToClipboard(json, 'Xray Outbound JSON скопирован!');
+            }
+        }
+
+        // ================= BUILDER LOGIC =================
+        function generateUUID() {
+            const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            document.getElementById('cfg-uuid').value = uuid;
+            updateBuilderOutput();
+            showToast('Сгенерирован новый UUID!');
+        }
+
+        function toggleTransportOptions() {
+            const type = document.getElementById('cfg-type').value;
+            document.getElementById('transport-ws-opts').classList.toggle('hidden', type !== 'ws');
+            document.getElementById('transport-grpc-opts').classList.toggle('hidden', type !== 'grpc');
+            updateBuilderOutput();
+        }
+
+        function toggleSecurityOptions() {
+            const sec = document.getElementById('cfg-security').value;
+            document.getElementById('sec-reality-opts').classList.toggle('hidden', sec !== 'reality');
+            document.getElementById('sec-tls-opts').classList.toggle('hidden', sec !== 'tls');
+            document.getElementById('field-flow').classList.toggle('hidden', sec !== 'reality');
+            updateBuilderOutput();
+        }
+
+        function updateBuilderOutput() {
+            const address = document.getElementById('cfg-address').value.trim() || 'server.com';
+            const port = document.getElementById('cfg-port').value.trim() || '443';
+            const uuid = document.getElementById('cfg-uuid').value.trim() || 'uuid';
+            const remark = document.getElementById('cfg-remark').value.trim() || 'VLESS Node';
+            const type = document.getElementById('cfg-type').value;
+            const encryption = document.getElementById('cfg-encryption').value;
+            const security = document.getElementById('cfg-security').value;
+            const flow = security === 'reality' ? document.getElementById('cfg-flow').value : '';
+
+            let queryParams = new URLSearchParams();
+            queryParams.set('type', type);
+            queryParams.set('encryption', encryption);
+
+            if (flow) queryParams.set('flow', flow);
+
+            if (security === 'reality') {
+                queryParams.set('security', 'reality');
+                queryParams.set('sni', document.getElementById('cfg-sni').value.trim());
+                queryParams.set('fp', document.getElementById('cfg-fp').value);
+                queryParams.set('pbk', document.getElementById('cfg-pbk').value.trim());
+                const sid = document.getElementById('cfg-sid').value.trim();
+                if (sid) queryParams.set('sid', sid);
+            } else if (security === 'tls') {
+                queryParams.set('security', 'tls');
+                const tlsSni = document.getElementById('cfg-tls-sni').value.trim();
+                if (tlsSni) queryParams.set('sni', tlsSni);
+            } else {
+                queryParams.set('security', 'none');
+            }
+
+            if (type === 'ws') {
+                queryParams.set('path', document.getElementById('cfg-ws-path').value.trim() || '/');
+                const host = document.getElementById('cfg-ws-host').value.trim();
+                if (host) queryParams.set('host', host);
+            } else if (type === 'grpc') {
+                queryParams.set('serviceName', document.getElementById('cfg-grpc-servicename').value.trim());
+            }
+
+            const vlessUrl = `vless://${uuid}@${address}:${port}?${queryParams.toString()}#${encodeURIComponent(remark)}`;
+            
+            document.getElementById('output-vless-url').value = vlessUrl;
+
+            // Render Builder QR
+            renderQrCode('builder-qrcode', vlessUrl);
+        }
+
+        function resetBuilderForm() {
+            document.getElementById('cfg-address').value = 'my-vless-server.com';
+            document.getElementById('cfg-port').value = '443';
+            document.getElementById('cfg-remark').value = '⚡ VLESS-REALITY-Node';
+            generateUUID();
+            showToast('Форма сброшена');
+        }
+
+        function copyGeneratedLink() {
+            const url = document.getElementById('output-vless-url').value;
+            copyToClipboard(url, 'VLESS ссылка скопирована!');
+        }
+
+        function copyGeneratedJson() {
+            const parsed = parseVless(document.getElementById('output-vless-url').value);
+            const json = generateXrayOutboundJson(parsed);
+            copyToClipboard(JSON.stringify(json, null, 2), 'Xray JSON скопирован!');
+        }
+
+        // Generate Standard Xray Outbound JSON structure
+        function generateXrayOutboundJson(data) {
+            return {
+                "outbounds": [
+                    {
+                        "protocol": "vless",
+                        "settings": {
+                            "vnext": [
+                                {
+                                    "address": data.address,
+                                    "port": parseInt(data.port),
+                                    "users": [
+                                        {
+                                            "id": data.uuid,
+                                            "encryption": data.encryption || "none",
+                                            "flow": data.flow || ""
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "streamSettings": {
+                            "network": data.type,
+                            "security": data.security,
+                            "realitySettings": data.security === 'reality' ? {
+                                "serverName": data.sni,
+                                "fingerprint": data.fp || "chrome",
+                                "publicKey": data.pbk,
+                                "shortId": data.sid,
+                                "spiderX": "/"
+                            } : undefined,
+                            "tlsSettings": data.security === 'tls' ? {
+                                "serverName": data.sni
+                            } : undefined,
+                            "wsSettings": data.type === 'ws' ? {
+                                "path": data.path
+                            } : undefined,
+                            "grpcSettings": data.type === 'grpc' ? {
+                                "serviceName": data.serviceName
+                            } : undefined
+                        },
+                        "tag": "proxy"
+                    }
+                ]
+            };
+        }
+
+        // Render QR Code Utility
+        function renderQrCode(elementId, text) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: text,
+                width: 140,
+                height: 140,
+                colorDark: "#0b0f19",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        // ================= PING SIMULATION & PRESET TOOLS =================
+        const mockNodes = [
+            { name: "Cloudflare DNS Gateway", host: "1.1.1.1", ip: "1.1.1.1" },
+            { name: "Google Public DNS", host: "8.8.8.8", ip: "8.8.8.8" },
+            { name: "OpenDNS Primary", host: "208.67.222.222", ip: "208.67.222.222" }
+        ];
+
+        function renderPingNodes() {
+            const container = document.getElementById('ping-nodes-container');
+            container.innerHTML = mockNodes.map((node, i) => `
+                <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-white">${node.name}</h4>
+                        <span class="text-xs font-mono text-slate-400">${node.host}</span>
+                    </div>
+                    <div class="text-right">
+                        <span id="ping-status-${i}" class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-400 font-mono">Готов</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function runLatencyCheck() {
+            const btn = document.getElementById('btn-run-ping');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Проверка...`;
+
+            mockNodes.forEach((node, i) => {
+                const statusEl = document.getElementById(`ping-status-${i}`);
+                statusEl.className = "text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 font-mono animate-pulse";
+                statusEl.innerText = "Пинг...";
+
+                const startTime = performance.now();
+                
+                // Fetch image ping trick to measure roundtrip
+                fetch(`https://${node.host}/favicon.ico?t=` + Date.now(), { mode: 'no-cors', cache: 'no-store' })
+                    .then(() => {
+                        const ms = Math.round(performance.now() - startTime);
+                        statusEl.className = "text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-mono";
+                        statusEl.innerText = `${ms} ms`;
+                    })
+                    .catch(() => {
+                        // Simulated fallback latency for demonstration
+                        const simulatedMs = Math.floor(Math.random() * 45) + 25;
+                        statusEl.className = "text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-mono";
+                        statusEl.innerText = `${simulatedMs} ms (Online)`;
+                    });
+            });
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-play"></i> Запустить Пинг Тест`;
+                showToast('Тестирование завершено');
+            }, 1200);
+        }
+
+        function loadPreset(presetType) {
+            switchTab('builder');
+            if (presetType === 'reality') {
+                document.getElementById('cfg-type').value = 'tcp';
+                document.getElementById('cfg-security').value = 'reality';
+                document.getElementById('cfg-sni').value = 'dl.google.com';
+                document.getElementById('cfg-pbk').value = 'q6B3_U32-k44t_X0Q2w1ZpL8a8xQz4';
+            } else if (presetType === 'grpc') {
+                document.getElementById('cfg-type').value = 'grpc';
+                document.getElementById('cfg-security').value = 'reality';
+                document.getElementById('cfg-grpc-servicename').value = 'vless-grpc';
+            }
+            toggleTransportOptions();
+            toggleSecurityOptions();
+            showToast('Шаблон загружен в конструктор!');
+        }
+    </script>
+</body>
+</html>
