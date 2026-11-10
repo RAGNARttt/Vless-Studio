@@ -1275,22 +1275,36 @@
             return m?{host:m[1],port:parseInt(m[2],10)}:null;
           }catch(e){return null;}
         }
-        async function checkOneServer(id){
-          const srv=savedServers.find(x=>x.id===id);if(!srv)return false;
-          const endpoint=serverEndpoint(srv.link);srv.checkStatus='checking';renderSubscriptionUi();
-          if(!endpoint){srv.checkStatus='unknown';srv.checkMessage='Не удалось прочитать адрес';renderSubscriptionUi();return false;}
-          try{
-            if(!window.AndroidVpnBridge||typeof AndroidVpnBridge.checkTcp!=='function')throw new Error('Проверка доступна только в приложении');
-            const ok=AndroidVpnBridge.checkTcp(endpoint.host,endpoint.port);
-            srv.checkStatus=ok?'online':'offline';srv.checkMessage=ok?'Порт отвечает':'Нет ответа на порту';srv.checkTime=new Date().toISOString();
-            persistSubscriptions();renderSubscriptionUi();return ok;
-          }catch(e){srv.checkStatus='unknown';srv.checkMessage=e.message||'Ошибка проверки';renderSubscriptionUi();return false;}
+        const pendingTcpChecks=new Set();
+        function onTcpCheckResult(id,ok){
+          const srv=savedServers.find(x=>x.id===id);if(!srv)return;
+          srv.checkStatus=ok?'online':'offline';srv.checkMessage=ok?'Порт отвечает':'Нет ответа на порту';srv.checkTime=new Date().toISOString();
+          pendingTcpChecks.delete(id);persistSubscriptions();renderSubscriptionUi();
+          if(pendingTcpChecks.size===0){
+            const online=savedServers.filter(x=>x.checkStatus==='online').length;
+            showToast('Проверка завершена: порт доступен у '+online+' из '+savedServers.length);
+          }
         }
-        async function checkAllServers(){
+        function checkAllServers(){
           if(!savedServers.length){showToast('Сначала добавь серверы','error');return;}
-          showToast('Проверяю '+savedServers.length+' серверов…');let online=0;
-          for(const srv of [...savedServers])if(await checkOneServer(srv.id))online++;
-          showToast('Проверка завершена: доступно '+online+' из '+savedServers.length);
+          if(pendingTcpChecks.size){showToast('Проверка уже выполняется');return;}
+          let started=0;
+          for(const srv of savedServers){
+            const endpoint=serverEndpoint(srv.link);
+            if(!endpoint){srv.checkStatus='unknown';srv.checkMessage='Не удалось прочитать адрес';continue;}
+            srv.checkStatus='checking';pendingTcpChecks.add(srv.id);started++;
+          }
+          renderSubscriptionUi();
+          if(!started){showToast('Не удалось определить адреса серверов','error');return;}
+          showToast('Проверяю '+started+' серверов в фоне…');
+          for(const srv of savedServers){
+            if(srv.checkStatus!=='checking')continue;
+            const endpoint=serverEndpoint(srv.link);
+            try{
+              if(!window.AndroidVpnBridge||typeof AndroidVpnBridge.checkTcpAsync!=='function')throw new Error('Требуется новая версия приложения');
+              AndroidVpnBridge.checkTcpAsync(endpoint.host,endpoint.port,srv.id);
+            }catch(e){onTcpCheckResult(srv.id,false);}
+          }
         }
         function renderSubscriptionUi(){
           const subEl=document.getElementById('subscription-list'),srvEl=document.getElementById('subscription-servers'),homeEl=document.getElementById('home-server-list');
