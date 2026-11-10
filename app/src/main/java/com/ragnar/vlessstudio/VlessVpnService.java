@@ -96,8 +96,11 @@ public class VlessVpnService extends VpnService implements DialerController {
                 throw new IllegalStateException("Android не создал VPN-интерфейс");
             }
 
+            Log.i(TAG, "VPN interface established; fd=" + vpnInterface.getFd()
+                    + ", allowedApps=" + (allowedApps == null ? 0 : allowedApps.size()));
             LibXray.registerDialerController(this);
             LibXray.setDNS(this, DNS_SERVER + ":53");
+            Log.i(TAG, "libXray dialer registered; remote DNS=" + DNS_SERVER + ":53");
 
             JSONObject converted = invoke("convertShareLinksToXrayJson",
                     new JSONObject().put("text", shareLink));
@@ -111,6 +114,11 @@ public class VlessVpnService extends VpnService implements DialerController {
             }
 
             JSONObject proxy = outbounds.getJSONObject(0);
+            JSONObject streamSettings = proxy.optJSONObject("streamSettings");
+            Log.i(TAG, "Converted outbound: protocol=" + proxy.optString("protocol")
+                    + ", network=" + (streamSettings == null ? "default" : streamSettings.optString("network"))
+                    + ", security=" + (streamSettings == null ? "default" : streamSettings.optString("security"))
+                    + ", outboundCount=" + outbounds.length());
             String proxyTag = proxy.optString("tag", "");
             if (proxyTag.isEmpty()) {
                 proxyTag = "proxy";
@@ -136,7 +144,7 @@ public class VlessVpnService extends VpnService implements DialerController {
                             .put("outboundTag", proxyTag));
 
             JSONObject config = new JSONObject()
-                    .put("log", new JSONObject().put("loglevel", "info"))
+                    .put("log", new JSONObject().put("loglevel", "debug"))
                     .put("env", new JSONObject().put("xray.tun.fd", String.valueOf(vpnInterface.getFd())))
                     .put("dns", new JSONObject().put("servers",
                             new JSONArray().put(DNS_SERVER).put("8.8.8.8")))
@@ -144,6 +152,7 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .put("outbounds", outbounds)
                     .put("routing", new JSONObject().put("rules", routingRules));
 
+            Log.i(TAG, "Starting Xray with TUN inbound, IPv4+IPv6 default routes and proxy DNS");
             JSONObject response = invoke("runXray",
                     new JSONObject().put("xrayJson", config.toString()));
             if (!response.optBoolean("success", false)) {
@@ -158,8 +167,8 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             connected = true;
             starting = false;
-            publishState(true, "VPN подключён · Xray передаёт трафик");
-            Log.i(TAG, "Xray TUN connected");
+            publishState(true, "VPN запущен · проверяем передачу трафика");
+            Log.i(TAG, "Xray TUN started; core startup does not prove internet reachability");
         } catch (Exception e) {
             Log.e(TAG, "VPN startup failed", e);
             cleanupTunnel();
