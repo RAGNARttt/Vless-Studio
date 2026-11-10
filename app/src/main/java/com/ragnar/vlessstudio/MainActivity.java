@@ -126,6 +126,20 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public boolean checkTcp(String host, int port) {
+            java.net.Socket socket = new java.net.Socket();
+            try {
+                if (host == null || host.trim().isEmpty() || port < 1 || port > 65535) return false;
+                socket.connect(new java.net.InetSocketAddress(host.trim(), port), 3000);
+                return true;
+            } catch (Exception e) {
+                return false;
+            } finally {
+                try { socket.close(); } catch (Exception ignored) {}
+            }
+        }
+
+        @JavascriptInterface
         public void requestVpnPermission(String shareLink) {
             runOnUiThread(() -> {
                 pendingShareLink = shareLink == null ? "" : shareLink;
