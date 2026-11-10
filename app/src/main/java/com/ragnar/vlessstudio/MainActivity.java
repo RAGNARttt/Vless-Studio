@@ -2,6 +2,9 @@ package com.ragnar.vlessstudio;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
 import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.graphics.Color;
@@ -24,6 +27,18 @@ public class MainActivity extends Activity {
     private static final int VPN_REQUEST_CODE = 1001;
     private FrameLayout root;
     private WebView webView;
+    private String pendingShareLink = "";
+    private boolean receiverRegistered = false;
+
+    private final BroadcastReceiver vpnStateReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (VlessVpnService.ACTION_STATE.equals(intent.getAction())) {
+                boolean connected = intent.getBooleanExtra("connected", false);
+                String message = intent.getStringExtra("message");
+                updateVpnUi(connected, message == null ? "" : message);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +55,7 @@ public class MainActivity extends Activity {
 
         configureSystemBars();
         configureWebView();
+        registerVpnReceiver();
     }
 
     private void configureSystemBars() {
@@ -110,8 +126,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void requestVpnPermission() {
-            runOnUiThread(() -> MainActivity.this.requestVpnPermission());
+        public void requestVpnPermission(String shareLink) {
+            runOnUiThread(() -> {
+                pendingShareLink = shareLink == null ? "" : shareLink;
+                MainActivity.this.requestVpnPermission();
+            });
         }
 
         @JavascriptInterface
@@ -120,7 +139,7 @@ public class MainActivity extends Activity {
                 Intent serviceIntent = new Intent(MainActivity.this, VlessVpnService.class);
                 serviceIntent.setAction(VlessVpnService.ACTION_STOP);
                 startService(serviceIntent);
-                updateVpnUi(false);
+                updateVpnUi(false, "VPN отключён");
             });
         }
     }
@@ -137,19 +156,29 @@ public class MainActivity extends Activity {
     private void startVpnService() {
         Intent serviceIntent = new Intent(this, VlessVpnService.class);
         serviceIntent.setAction(VlessVpnService.ACTION_START);
+        serviceIntent.putExtra(VlessVpnService.EXTRA_SHARE_LINK, pendingShareLink);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         } else {
             startService(serviceIntent);
         }
-        updateVpnUi(true);
+        updateVpnUi(false, "Подключаемся к серверу…");
     }
 
-    private void updateVpnUi(boolean started) {
+    private void updateVpnUi(boolean started, String message) {
         if (webView != null) {
-            String script = "setVpnUiState(" + started + ")";
+            String safeMessage = org.json.JSONObject.quote(message == null ? "" : message);
+            String script = "setVpnUiState(" + started + "," + safeMessage + ")";
             webView.post(() -> webView.evaluateJavascript(script, null));
         }
+    }
+
+    private void registerVpnReceiver() {
+        if (receiverRegistered) return;
+        IntentFilter filter = new IntentFilter(VlessVpnService.ACTION_STATE);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(vpnStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(vpnStateReceiver, filter);
+        receiverRegistered = true;
     }
 
     @Override
@@ -159,7 +188,7 @@ public class MainActivity extends Activity {
             if (resultCode == RESULT_OK) {
                 startVpnService();
             } else {
-                updateVpnUi(false);
+                updateVpnUi(false, "Разрешение VPN не выдано");
             }
         }
     }
@@ -179,6 +208,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (receiverRegistered) {
+            try { unregisterReceiver(vpnStateReceiver); } catch (Exception ignored) {}
+            receiverRegistered = false;
+        }
         if (webView != null) {
             webView.removeJavascriptInterface("AndroidVpnBridge");
             webView.destroy();
