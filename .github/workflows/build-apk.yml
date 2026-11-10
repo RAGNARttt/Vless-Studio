@@ -39,12 +39,12 @@ jobs:
           python-version: '3.12'
 
       - name: Setup Android SDK
-  run: |
-    yes | sdkmanager --licenses
-    sdkmanager --install \
-      "platforms;android-35" \
-      "build-tools;35.0.0" \
-      "ndk;27.2.12479018"
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018"
 
       - name: Install Android NDK
         run: sdkmanager "ndk;27.2.12479018"
