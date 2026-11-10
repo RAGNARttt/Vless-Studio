@@ -2,38 +2,78 @@ package com.ragnar.vlessstudio;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Insets;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.view.WindowInsets;
-import android.graphics.Insets;
 
 public class MainActivity extends Activity {
     private static final int VPN_REQUEST_CODE = 1001;
+    private FrameLayout root;
     private WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Color.rgb(8, 11, 22));
         webView = new WebView(this);
-        setContentView(webView);
+        root.addView(webView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+        setContentView(root);
 
-        // Keep WebView content below Android status/navigation bars on modern devices.
+        configureSystemBars();
+        configureWebView();
+    }
+
+    private void configureSystemBars() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            webView.setOnApplyWindowInsetsListener((view, windowInsets) -> {
-                Insets bars = windowInsets.getInsets(WindowInsets.Type.systemBars());
-                view.setPadding(0, bars.top, 0, bars.bottom);
-                return windowInsets;
-            });
-            webView.requestApplyInsets();
-        }
+            Window window = getWindow();
+            window.setDecorFitsSystemWindows(false);
+            window.setStatusBarColor(Color.TRANSPARENT);
+            window.setNavigationBarColor(Color.TRANSPARENT);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.setStatusBarContrastEnforced(false);
+                window.setNavigationBarContrastEnforced(false);
+            }
 
+            // Apply the real system-bar insets to the WebView's bounds, not its
+            // internal padding. This prevents HTML header/footer from drawing
+            // underneath the status and navigation bars on Android 11+.
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                Insets bars = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()
+                );
+                FrameLayout.LayoutParams lp =
+                        (FrameLayout.LayoutParams) webView.getLayoutParams();
+                lp.setMargins(bars.left, bars.top, bars.right, bars.bottom);
+                webView.setLayoutParams(lp);
+                return WindowInsets.CONSUMED;
+            });
+            root.requestApplyInsets();
+        } else {
+            // Older Android versions use the platform's normal decor fitting.
+            getWindow().setStatusBarColor(Color.rgb(8, 11, 22));
+            getWindow().setNavigationBarColor(Color.rgb(8, 11, 22));
+        }
+    }
+
+    private void configureWebView() {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -61,6 +101,7 @@ public class MainActivity extends Activity {
                 Intent serviceIntent = new Intent(MainActivity.this, VlessVpnService.class);
                 serviceIntent.setAction(VlessVpnService.ACTION_STOP);
                 startService(serviceIntent);
+                updateVpnUi(false);
             });
         }
     }
