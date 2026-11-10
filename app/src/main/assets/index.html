@@ -198,29 +198,14 @@
     <!-- Single connection dashboard lives on the Home tab; avoid duplicate controls here. -->
 
     <section class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
-        <div class="glass-panel rounded-2xl p-4 vpn-control-panel">
-            <div class="vpn-status flex-1 min-w-0">
-                <div class="text-sm font-semibold text-white"><i class="fa-solid fa-shield-halved text-brand-400 mr-2"></i>VPN-подключение</div>
-                <div id="vpn-status" class="text-xs text-amber-300 mt-1">Служба не запущена · передача трафика ещё не подключена</div>
-            </div>
-            <button id="vpn-connect-btn" onclick="requestVpnConnect()" class="glow-button bg-brand-600 hover:bg-brand-500 text-white px-4 py-3 rounded-xl text-sm font-semibold">
-                <i class="fa-solid fa-power-off mr-2"></i>Подключить
-            </button>
-            <button id="vpn-disconnect-btn" onclick="requestVpnDisconnect()" class="glass-panel border border-slate-700 text-slate-300 px-4 py-3 rounded-xl text-sm font-semibold">
-                <i class="fa-solid fa-stop mr-2"></i>Отключить
-            </button>
-        </div>
-    </section>
-
-    <section class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
       <div id="tab-home" class="tab-content space-y-5">
         <div class="client-hero rounded-3xl p-7 text-center">
           <div class="flex justify-between items-center mb-5"><button onclick="switchTab('tools')" class="text-slate-400 p-2"><i class="fa-solid fa-gear text-xl"></i></button><button onclick="switchTab('subscriptions')" class="text-slate-300 p-2"><i class="fa-solid fa-plus text-2xl"></i></button></div>
-          <div class="power-ring"><div class="power-core"><i class="fa-solid fa-power-off text-3xl text-brand-400 mb-2"></i><div id="home-vpn-state" class="text-xs font-semibold text-slate-300">НЕ ПОДКЛЮЧЕН</div><div id="home-vpn-timer" class="text-lg text-white mt-1">--:--:--</div></div></div>
+          <div class="power-ring"><div class="power-core"><i class="fa-solid fa-power-off text-3xl text-brand-400 mb-2"></i><div id="home-vpn-state" class="text-xs font-semibold text-slate-300">НЕ ПОДКЛЮЧЕН</div><div id="home-vpn-timer" class="text-xs text-slate-400 mt-1">Ожидание подключения</div></div></div>
           <p class="text-sm text-slate-400 mt-6">Текущее подключение</p>
           <p id="home-active-server" class="text-white font-semibold mt-1">Сервер не выбран</p>
           <div class="mt-5"><button id="home-vpn-toggle" onclick="toggleVpnConnection()" class="client-action glow-button bg-brand-600 text-white rounded-xl py-4 px-6 font-semibold text-lg w-full"><i class="fa-solid fa-power-off mr-2"></i><span id="home-vpn-toggle-label">Подключить</span></button></div>
-          <p class="text-xs text-amber-300 mt-4">VPN-движок Xray ещё не подключён к передаче трафика.</p>
+          <p id="home-vpn-warning" class="text-xs text-amber-300 mt-4">Xray пока не запущен: реальный VPN-туннель ещё не установлен.</p>
         </div>
         <div class="glass-panel rounded-2xl p-4"><div class="flex justify-between items-center mb-3"><h2 class="text-lg font-bold text-white">Список серверов</h2><button onclick="switchTab('subscriptions')" class="text-brand-400 text-sm">Добавить +</button></div><div id="home-server-list" class="space-y-2"><p class="text-sm text-slate-400">Добавь подписку или отдельную конфигурацию.</p></div></div>
       </div>
@@ -733,12 +718,13 @@
                 toggleButton.classList.toggle('glow-button', !started);
             }
             if (homeState) homeState.textContent = started ? 'СЛУЖБА ЗАПУЩЕНА' : 'НЕ ПОДКЛЮЧЕН';
-            const status = document.getElementById('vpn-status');
-            if (!status) return;
-            status.textContent = started
-                ? 'Служба запущена · туннель Xray пока не передаёт трафик'
-                : 'Служба не запущена · передача трафика ещё не подключена';
-            status.className = started ? 'text-xs text-amber-300 mt-1' : 'text-xs text-slate-400 mt-1';
+            const warning = document.getElementById('home-vpn-warning');
+            if (warning) warning.textContent = started
+                ? 'Служба Android запущена, но Xray-туннель не установлен и трафик не проходит.'
+                : 'Xray пока не запущен: реальный VPN-туннель ещё не установлен.';
+            if (homeState) homeState.textContent = 'НЕ ПОДКЛЮЧЕН';
+            const timer = document.getElementById('home-vpn-timer');
+            if (timer) timer.textContent = 'Нет активного туннеля';
         }
 
         // ================= VLESS / VMESS / TROJAN PARSER LOGIC =================
