@@ -725,8 +725,18 @@
         // Android VPN permission bridge. The current service is a foundation only:
         // it does not route user traffic until libXray/TUN integration is completed.
         function requestVpnConnect() {
+            const active = savedServers.find(x => x.id === activeServerId);
+            if (!active || !active.link) {
+                showToast('Сначала выбери сервер в списке', 'error');
+                return;
+            }
             if (window.AndroidVpnBridge && AndroidVpnBridge.requestVpnPermission) {
-                AndroidVpnBridge.requestVpnPermission();
+                vpnUiConnecting = true;
+                const state = document.getElementById('home-vpn-state');
+                if (state) state.textContent = 'ПОДКЛЮЧЕНИЕ…';
+                const timer = document.getElementById('home-vpn-timer');
+                if (timer) timer.textContent = 'Запуск Xray';
+                AndroidVpnBridge.requestVpnPermission(active.link);
             } else {
                 showToast('Запрос VPN доступен только в установленном APK', 'error');
             }
@@ -739,21 +749,46 @@
                 showToast('Отключение VPN доступно только в APK', 'error');
             }
         }
-        function setVpnUiState(started) {
+        let vpnUiConnecting = false;
+        let vpnConnectedAt = 0;
+        let vpnTimerHandle = null;
+        function renderVpnTimer() {
+            const timer = document.getElementById('home-vpn-timer');
+            if (!timer || !vpnConnectedAt) return;
+            const seconds = Math.floor((Date.now() - vpnConnectedAt) / 1000);
+            const hh = String(Math.floor(seconds / 3600)).padStart(2, '0');
+            const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+            const ss = String(seconds % 60).padStart(2, '0');
+            timer.textContent = hh + ':' + mm + ':' + ss;
+        }
+        function setVpnUiState(started, message) {
+            const connecting = !started && String(message || '').startsWith('Подключаемся');
             vpnUiConnected = !!started;
+            vpnUiConnecting = connecting;
             const toggleButton = document.getElementById('home-vpn-toggle');
             const homeState = document.getElementById('home-vpn-state');
             if (toggleButton) {
                 toggleButton.classList.toggle('is-on', !!started);
                 toggleButton.setAttribute('aria-label', started ? 'Отключить VPN' : 'Подключить VPN');
+                toggleButton.disabled = connecting;
             }
-            if (homeState) homeState.textContent = started ? 'СЛУЖБА ЗАПУЩЕНА' : 'НЕ ПОДКЛЮЧЕН';
+            if (homeState) homeState.textContent = started ? 'ПОДКЛЮЧЕН' : (connecting ? 'ПОДКЛЮЧЕНИЕ…' : 'НЕ ПОДКЛЮЧЕН');
             const warning = document.getElementById('home-vpn-warning');
-            if (warning) warning.textContent = started
-                ? 'Служба Android запущена. Xray-туннель пока не подключён, трафик не маршрутизируется.'
-                : 'Служба остановлена. Xray-туннель не активен.';
+            if (warning) warning.textContent = message || (started ? 'VPN подключён.' : 'VPN отключён.');
             const timer = document.getElementById('home-vpn-timer');
-            if (timer) timer.textContent = 'Туннель не активен';
+            if (started) {
+                if (!vpnConnectedAt) vpnConnectedAt = Date.now();
+                if (vpnTimerHandle) clearInterval(vpnTimerHandle);
+                renderVpnTimer();
+                vpnTimerHandle = setInterval(renderVpnTimer, 1000);
+            } else if (!connecting) {
+                vpnConnectedAt = 0;
+                if (vpnTimerHandle) clearInterval(vpnTimerHandle);
+                vpnTimerHandle = null;
+                if (timer) timer.textContent = message || 'Туннель не активен';
+            } else if (timer) {
+                timer.textContent = 'Запуск Xray…';
+            }
         }
 
         // ================= VLESS / VMESS / TROJAN PARSER LOGIC =================
