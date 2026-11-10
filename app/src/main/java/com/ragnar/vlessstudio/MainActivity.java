@@ -177,18 +177,22 @@ public class MainActivity extends Activity {
         try {
             android.content.pm.PackageManager pm = getPackageManager();
             java.util.List<android.content.pm.ApplicationInfo> installed =
-                    pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA);
+                    pm.getInstalledApplications(0);
             java.util.List<android.content.pm.ApplicationInfo> apps = new java.util.ArrayList<>();
             for (android.content.pm.ApplicationInfo app : installed) {
-                if (app.packageName.equals(getPackageName())) continue;
-                if (pm.getLaunchIntentForPackage(app.packageName) != null) apps.add(app);
+                if (!app.packageName.equals(getPackageName())) apps.add(app);
             }
-            java.util.Collections.sort(apps, (a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
-                    String.valueOf(a.loadLabel(pm)), String.valueOf(b.loadLabel(pm))));
+            java.util.Collections.sort(apps, (a, b) -> {
+                boolean aSystem = (a.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0;
+                boolean bSystem = (b.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0;
+                if (aSystem != bSystem) return aSystem ? 1 : -1;
+                return String.CASE_INSENSITIVE_ORDER.compare(String.valueOf(a.loadLabel(pm)), String.valueOf(b.loadLabel(pm)));
+            });
             java.util.List<String> labels = new java.util.ArrayList<>();
             java.util.List<String> packages = new java.util.ArrayList<>();
             for (android.content.pm.ApplicationInfo app : apps) {
-                labels.add(String.valueOf(app.loadLabel(pm)));
+                String label = String.valueOf(app.loadLabel(pm));
+                labels.add(label + "\n" + app.packageName);
                 packages.add(app.packageName);
             }
             android.content.SharedPreferences prefs = getSharedPreferences("vpn_settings", MODE_PRIVATE);
@@ -198,8 +202,8 @@ public class MainActivity extends Activity {
             for (int i = 0; i < packages.size(); i++) checked[i] = saved.contains(packages.get(i));
             String[] labelArray = labels.toArray(new String[0]);
             android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                    .setTitle("Приложения через VPN")
-                    .setMessage("Выбери приложения. Отмеченные будут работать через VPN.")
+                    .setTitle("Приложения через VPN (" + apps.size() + ")")
+                    .setMessage("Отметь приложения, которые должны использовать VPN. Пустой выбор означает все приложения.")
                     .setMultiChoiceItems(labelArray, checked, (d, which, isChecked) -> checked[which] = isChecked)
                     .setNegativeButton("Отмена", null)
                     .setNeutralButton("Все приложения", (d, which) -> {
@@ -213,12 +217,15 @@ public class MainActivity extends Activity {
                         notifyAppSelectionSaved(selected.size());
                     }).create();
             dialog.show();
-            if (packages.isEmpty()) {
-                android.widget.Toast.makeText(this, "Не удалось получить список приложений", android.widget.Toast.LENGTH_LONG).show();
+            if (apps.isEmpty()) {
+                android.widget.Toast.makeText(this,
+                        "Android не вернул список приложений. Проверь разрешение QUERY_ALL_PACKAGES.",
+                        android.widget.Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
             android.util.Log.e("VLESSStudio", "Cannot show app picker", e);
-            android.widget.Toast.makeText(this, "Не удалось открыть список приложений", android.widget.Toast.LENGTH_LONG).show();
+            android.widget.Toast.makeText(this, "Не удалось открыть список приложений: " + e.getMessage(),
+                    android.widget.Toast.LENGTH_LONG).show();
         }
     }
 
