@@ -188,22 +188,81 @@ public class MainActivity extends Activity {
                 if (aSystem != bSystem) return aSystem ? 1 : -1;
                 return String.CASE_INSENSITIVE_ORDER.compare(String.valueOf(a.loadLabel(pm)), String.valueOf(b.loadLabel(pm)));
             });
-            java.util.List<String> labels = new java.util.ArrayList<>();
-            java.util.List<String> packages = new java.util.ArrayList<>();
-            for (android.content.pm.ApplicationInfo app : apps) {
-                String label = String.valueOf(app.loadLabel(pm));
-                labels.add(label + "\n" + app.packageName);
-                packages.add(app.packageName);
-            }
+
             android.content.SharedPreferences prefs = getSharedPreferences("vpn_settings", MODE_PRIVATE);
             java.util.Set<String> saved = new java.util.HashSet<>(
                     prefs.getStringSet("allowed_apps", java.util.Collections.emptySet()));
-            boolean[] checked = new boolean[packages.size()];
-            for (int i = 0; i < packages.size(); i++) checked[i] = saved.contains(packages.get(i));
-            String[] labelArray = labels.toArray(new String[0]);
-            android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+            boolean[] checked = new boolean[apps.size()];
+            for (int i = 0; i < apps.size(); i++) checked[i] = saved.contains(apps.get(i).packageName);
+
+            android.widget.ListView list = new android.widget.ListView(this);
+            list.setChoiceMode(android.widget.ListView.CHOICE_MODE_NONE);
+            list.setDividerHeight(1);
+            list.setAdapter(new android.widget.BaseAdapter() {
+                @Override public int getCount() { return apps.size(); }
+                @Override public Object getItem(int position) { return apps.get(position); }
+                @Override public long getItemId(int position) { return position; }
+                @Override public android.view.View getView(int position, android.view.View convertView, android.view.ViewGroup parent) {
+                    android.widget.LinearLayout row;
+                    android.widget.ImageView icon;
+                    android.widget.LinearLayout labels;
+                    android.widget.TextView title;
+                    android.widget.TextView pkg;
+                    android.widget.CheckBox check;
+                    if (convertView instanceof android.widget.LinearLayout) {
+                        row = (android.widget.LinearLayout) convertView;
+                        icon = (android.widget.ImageView) row.getChildAt(0);
+                        labels = (android.widget.LinearLayout) row.getChildAt(1);
+                        check = (android.widget.CheckBox) row.getChildAt(2);
+                        title = (android.widget.TextView) labels.getChildAt(0);
+                        pkg = (android.widget.TextView) labels.getChildAt(1);
+                    } else {
+                        row = new android.widget.LinearLayout(MainActivity.this);
+                        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                        int pad = (int)(12 * getResources().getDisplayMetrics().density);
+                        row.setPadding(pad, pad / 2, pad, pad / 2);
+                        icon = new android.widget.ImageView(MainActivity.this);
+                        android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams(
+                                (int)(40 * getResources().getDisplayMetrics().density),
+                                (int)(40 * getResources().getDisplayMetrics().density));
+                        ip.setMargins(0, 0, pad, 0);
+                        row.addView(icon, ip);
+                        labels = new android.widget.LinearLayout(MainActivity.this);
+                        labels.setOrientation(android.widget.LinearLayout.VERTICAL);
+                        row.addView(labels, new android.widget.LinearLayout.LayoutParams(0,
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                        title = new android.widget.TextView(MainActivity.this);
+                        title.setTextSize(16);
+                        title.setTextColor(android.graphics.Color.WHITE);
+                        labels.addView(title);
+                        pkg = new android.widget.TextView(MainActivity.this);
+                        pkg.setTextSize(11);
+                        pkg.setTextColor(0xFF9CA3AF);
+                        labels.addView(pkg);
+                        check = new android.widget.CheckBox(MainActivity.this);
+                        row.addView(check);
+                    }
+                    android.content.pm.ApplicationInfo app = apps.get(position);
+                    try { icon.setImageDrawable(app.loadIcon(pm)); }
+                    catch (Exception ignored) { icon.setImageResource(android.R.drawable.sym_def_app_icon); }
+                    title.setText(app.loadLabel(pm));
+                    pkg.setText(app.packageName);
+                    check.setOnCheckedChangeListener(null);
+                    check.setChecked(checked[position]);
+                    check.setOnCheckedChangeListener((button, value) -> checked[position] = value);
+                    row.setOnClickListener(v -> check.setChecked(!check.isChecked()));
+                    return row;
+                }
+            });
+
+            int maxHeight = (int)(getResources().getDisplayMetrics().heightPixels * 0.62f);
+            android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+            frame.addView(list, new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT, maxHeight));
+            new android.app.AlertDialog.Builder(this)
                     .setTitle("Приложения через VPN (" + apps.size() + ")")
-                    .setMultiChoiceItems(labelArray, checked, (d, which, isChecked) -> checked[which] = isChecked)
+                    .setView(frame)
                     .setNegativeButton("Отмена", null)
                     .setNeutralButton("Все приложения", (d, which) -> {
                         prefs.edit().remove("allowed_apps").apply();
@@ -211,16 +270,10 @@ public class MainActivity extends Activity {
                     })
                     .setPositiveButton("Сохранить", (d, which) -> {
                         java.util.Set<String> selected = new java.util.HashSet<>();
-                        for (int i = 0; i < checked.length; i++) if (checked[i]) selected.add(packages.get(i));
+                        for (int i = 0; i < checked.length; i++) if (checked[i]) selected.add(apps.get(i).packageName);
                         prefs.edit().putStringSet("allowed_apps", selected).apply();
                         notifyAppSelectionSaved(selected.size());
-                    }).create();
-            dialog.show();
-            if (apps.isEmpty()) {
-                android.widget.Toast.makeText(this,
-                        "Android не вернул список приложений. Проверь разрешение QUERY_ALL_PACKAGES.",
-                        android.widget.Toast.LENGTH_LONG).show();
-            }
+                    }).show();
         } catch (Exception e) {
             android.util.Log.e("VLESSStudio", "Cannot show app picker", e);
             android.widget.Toast.makeText(this, "Не удалось открыть список приложений: " + e.getMessage(),
