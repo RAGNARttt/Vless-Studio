@@ -52,6 +52,63 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/XTLS/libXray.git
           cd libXray
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("share/transport_build.go")
+          s = p.read_text()
+          s = s.replace('"encoding/json"\n', '"encoding/json"\n\t"bytes"\n\t"math"\n')
+          s = s.replace('"strconv"\n', '"strconv"\n')
+          old = '''\t\tif t.ExtraJSON != "" {
+          \t\t\tif err := json.Unmarshal([]byte(t.ExtraJSON), &xhttpSettings.Extra); err != nil {
+          \t\t\t\treturn nil, err
+          \t\t\t}
+          \t\t}'''
+          new = '''\t\tif t.ExtraJSON != "" {
+          \t\t\tnormalized, err := normalizeIntegralJSONNumbers([]byte(t.ExtraJSON))
+          \t\t\tif err != nil {
+          \t\t\t\treturn nil, err
+          \t\t\t}
+          \t\t\tif err := json.Unmarshal(normalized, &xhttpSettings.Extra); err != nil {
+          \t\t\t\treturn nil, err
+          \t\t\t}
+          \t\t}'''
+          if old not in s:
+              raise SystemExit("Could not find XHTTP extra parser to patch")
+          s = s.replace(old, new, 1)
+          s += '''
+          
+          // normalizeIntegralJSONNumbers accepts integer-valued JSON numbers such as
+          // 64.0 in XHTTP share-link extras where Go config fields are integer types.
+          func normalizeIntegralJSONNumbers(raw []byte) ([]byte, error) {
+          \tdecoder := json.NewDecoder(bytes.NewReader(raw))
+          \tdecoder.UseNumber()
+          \tvar value any
+          \tif err := decoder.Decode(&value); err != nil {
+          \t\treturn nil, err
+          \t}
+          \tvar normalize func(any) any
+          \tnormalize = func(v any) any {
+          \t\tswitch item := v.(type) {
+          \t\tcase json.Number:
+          \t\t\tif i, err := item.Int64(); err == nil {
+          \t\t\t\treturn i
+          \t\t\t}
+          \t\t\tif f, err := item.Float64(); err == nil && !math.IsInf(f, 0) && !math.IsNaN(f) && math.Trunc(f) == f && f >= math.MinInt64 && f < math.MaxInt64 {
+          \t\t\t\treturn int64(f)
+          \t\t\t}
+          \t\t\treturn item
+          \t\tcase []any:
+          \t\t\tfor i := range item { item[i] = normalize(item[i]) }
+          \t\tcase map[string]any:
+          \t\t\tfor key := range item { item[key] = normalize(item[key]) }
+          \t\t}
+          \t\treturn v
+          \t}
+          \treturn json.Marshal(normalize(value))
+          }
+          '''
+          p.write_text(s)
+          PY
           python3 build/main.py android
           mkdir -p ../app/libs
           cp libXray.aar ../app/libs/
