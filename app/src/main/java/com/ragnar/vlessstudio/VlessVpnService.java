@@ -113,18 +113,35 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .put("protocol", "tun")
                     .put("settings", tunSettings);
 
+            // Send DNS packets from Android's TUN to Xray's DNS outbound.
+            // The previous catch-all rule sent port 53 through the proxy as ordinary
+            // application traffic; that can leave Android connected but unable to
+            // resolve any hostnames on transports that do not carry DNS reliably.
+            JSONObject dnsOutbound = new JSONObject()
+                    .put("tag", "dns-out")
+                    .put("protocol", "dns")
+                    .put("settings", new JSONObject().put("network", "tcp"));
+            outbounds.put(dnsOutbound);
+
+            JSONArray routingRules = new JSONArray()
+                    .put(new JSONObject()
+                            .put("type", "field")
+                            .put("inboundTag", new JSONArray().put("tun-in"))
+                            .put("port", "53")
+                            .put("outboundTag", "dns-out"))
+                    .put(new JSONObject()
+                            .put("type", "field")
+                            .put("inboundTag", new JSONArray().put("tun-in"))
+                            .put("outboundTag", proxyTag));
+
             JSONObject config = new JSONObject()
-                    .put("log", new JSONObject().put("loglevel", "warning"))
+                    .put("log", new JSONObject().put("loglevel", "info"))
                     .put("env", new JSONObject().put("xray.tun.fd", String.valueOf(vpnInterface.getFd())))
                     .put("dns", new JSONObject().put("servers",
                             new JSONArray().put(DNS_SERVER).put("8.8.8.8")))
                     .put("inbounds", new JSONArray().put(tunInbound))
                     .put("outbounds", outbounds)
-                    .put("routing", new JSONObject().put("rules",
-                            new JSONArray().put(new JSONObject()
-                                    .put("type", "field")
-                                    .put("inboundTag", new JSONArray().put("tun-in"))
-                                    .put("outboundTag", proxyTag))));
+                    .put("routing", new JSONObject().put("rules", routingRules));
 
             JSONObject response = invoke("runXray",
                     new JSONObject().put("xrayJson", config.toString()));
