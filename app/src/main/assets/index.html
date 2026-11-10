@@ -1191,9 +1191,10 @@
         }
         function importSingleConfig(){
           const field=document.getElementById('subscription-url');
-          const url=field.value.replace(/^\\uFEFF/,'').trim();
+          const url=field.value.trim();
           if(!url){showToast('Вставь ссылку конфигурации','error');return;}
-          if(!/^(vless|vmess|trojan|ss):\\/\\//i.test(url)){showToast('Для одиночного сервера нужна ссылка vless://, vmess://, trojan:// или ss://', 'error');return;}
+          const lowerUrl=url.toLowerCase();
+          if(!(lowerUrl.startsWith('vless://')||lowerUrl.startsWith('vmess://')||lowerUrl.startsWith('trojan://')||lowerUrl.startsWith('ss://'))){showToast('Для одиночного сервера нужна ссылка vless://, vmess://, trojan:// или ss://', 'error');return;}
           if(savedServers.some(x=>x.link===url)){showToast('Этот сервер уже добавлен', 'error');return;}
           if(!addServerLink(url)){showToast('Не удалось распознать ссылку. Проверь её целиком.', 'error');return;}
           persistSubscriptions();renderSubscriptionUi();field.value='';showToast('Конфигурация добавлена');
