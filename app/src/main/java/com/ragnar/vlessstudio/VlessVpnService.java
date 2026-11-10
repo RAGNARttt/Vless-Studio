@@ -9,8 +9,8 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import libXray.DialerController;
-import libXray.LibXray;
+import go.libXray.DialerController;
+import go.libXray.LibXray;
 
 public class VlessVpnService extends VpnService implements DialerController {
     private static final String TAG = "VlessVpnService";
