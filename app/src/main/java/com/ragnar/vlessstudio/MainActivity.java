@@ -6,10 +6,11 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-
+import android.content.Intent;
+import android.net.VpnService;
 public class MainActivity extends Activity {
     private WebView webView;
-
+private static final int VPN_REQUEST_CODE = 1001;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,4 +48,42 @@ public class MainActivity extends Activity {
         }
         super.onDestroy();
     }
+
+private void requestVpnPermission() {
+    Intent intent = VpnService.prepare(this);
+
+    if (intent != null) {
+        startActivityForResult(intent, VPN_REQUEST_CODE);
+    } else {
+        onActivityResult(
+                VPN_REQUEST_CODE,
+                RESULT_OK,
+                null
+        );
+    }
+}
+
+@Override
+protected void onActivityResult(
+        int requestCode,
+        int resultCode,
+        Intent data
+) {
+    super.onActivityResult(requestCode, resultCode, data);
+
+    if (requestCode == VPN_REQUEST_CODE) {
+        if (resultCode == RESULT_OK) {
+            Intent serviceIntent =
+                    new Intent(this, VlessVpnService.class);
+
+            serviceIntent.setAction(VlessVpnService.ACTION_START);
+
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        }
+    }
+}
 }

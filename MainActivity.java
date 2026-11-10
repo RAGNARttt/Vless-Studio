@@ -1,4 +1,21 @@
-package com.ragnar.vlessstudio;
+Работаем над Android-проектом VLESS Studio в репозитории RAGNARttt/Vless-Studio.
+
+Нужно реализовать первый этап интеграции Android VPNService.
+
+Задачи:
+
+1. Изучи текущую структуру проекта, MainActivity.java, AndroidManifest.xml и app/build.gradle.
+2. Создай класс VlessVpnService.java, наследующий android.net.VpnService.
+3. Зарегистрируй VPN-службу в AndroidManifest.xml с правильными разрешениями и настройками foreground service для target SDK проекта.
+4. Добавь в MainActivity запрос системного разрешения через VpnService.prepare().
+5. Добавь управление запуском и остановкой VPN-службы.
+6. Добавь в существующий WebView интерфейс две кнопки: «Подключить VPN» и «Отключить VPN».
+7. Добавь уведомление Android о работе VPN-службы.
+8. Обеспечь корректное освобождение ресурсов при остановке службы.
+
+ВАЖНО:
+
+- Пока эхавьвьзапускомавьнтерфейсйсснтерфейс
 
 import android.app.Activity;
 import android.os.Bundle;
