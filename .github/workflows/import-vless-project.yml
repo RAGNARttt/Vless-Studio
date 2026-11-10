@@ -1,6 +1,6 @@
 name: Import VLESS Studio project
 
-on:
+'on':
   workflow_dispatch:
 
 permissions:
