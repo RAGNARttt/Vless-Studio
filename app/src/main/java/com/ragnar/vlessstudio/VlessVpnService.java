@@ -100,14 +100,14 @@ public class VlessVpnService extends VpnService implements DialerController {
                 }
             }
 
-            // TEMPORARY STABILITY TEST: keep the VPN IPv4-only.
-            // The Xray TUN path has not yet been verified for IPv6; installing
-            // an IPv6 default route here can blackhole dual-stack app traffic.
-            // Do not advertise an IPv6 route or DNS until IPv6 forwarding is tested.
+            // Restore the dual-stack routes used by the previously working build.
+            builder.addAddress("fd64:6c65:7373::1", 128);
+            builder.addRoute("::", 0);
+            builder.addDnsServer("2606:4700:4700::1111");
 
             // Explicitly tell Android which physical network carries VPN sockets.
             if (underlying != null) builder.setUnderlyingNetworks(new android.net.Network[]{underlying});
-            // Start with IPv4 only while isolating the Android TUN data path.
+            // Establish the dual-stack Android VPN interface.
             vpnInterface = builder.establish();
             if (vpnInterface == null) {
                 throw new IllegalStateException("Android не создал VPN-интерфейс");
