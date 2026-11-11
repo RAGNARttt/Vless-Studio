@@ -74,9 +74,7 @@ public class VlessVpnService extends VpnService implements DialerController {
 
     private void startVpn(String shareLink, int startId) {
         try {
-            // Resolve the physical uplink before establishing the VPN.
-            // Android Xray TUN requires a real interface name; "auto" is unsupported.
-            String physicalInterface = getPhysicalInterfaceName();
+            // Capture Android's underlying network before establishing the VPN.
             android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             android.net.Network underlying = cm == null ? null : cm.getActiveNetwork();
             Builder builder = new Builder()
@@ -149,9 +147,7 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject tunSettings = new JSONObject()
                     .put("name", "vlessstudio")
-                    .put("mtu", 1500)
-                    // Prevent Xray's own proxy sockets from looping back into this VPN.
-                    .put("autoOutboundsInterface", physicalInterface);
+                    .put("mtu", 1500); // Android owns routing; proxy sockets are excluded with VpnService.protectFd.
             JSONObject tunInbound = new JSONObject()
                     .put("tag", "tun-in")
                     .put("port", 0)
@@ -176,7 +172,7 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .put("outbounds", outbounds)
                     .put("routing", new JSONObject().put("rules", routingRules));
 
-            Log.i(TAG, "Starting Xray with IPv4 TUN route, physical network pinned, proxy DNS; fd=" + vpnInterface.getFd());
+            Log.i(TAG, "Starting Xray with IPv4 TUN route; Android manages routes and protected proxy sockets; fd=" + vpnInterface.getFd());
             JSONObject response = invoke("runXray",
                     new JSONObject().put("xrayJson", config.toString()));
             if (!response.optBoolean("success", false)) {
