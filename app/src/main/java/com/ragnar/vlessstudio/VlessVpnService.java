@@ -21,6 +21,9 @@ public class VlessVpnService extends VpnService implements DialerController {
     public static final String ACTION_STATE = "com.ragnar.vlessstudio.VPN_STATE";
     public static final String EXTRA_SHARE_LINK = "share_link";
     private static final String DNS_SERVER = "1.1.1.1";
+    private static volatile String lastDiagnostic = "VPN ещё не запускался";
+    private static void diag(String value) { lastDiagnostic = java.text.DateFormat.getDateTimeInstance().format(new java.util.Date()) + "\\n" + value; Log.i(TAG, value); }
+    public static String getDiagnostics() { return lastDiagnostic; }
 
     private ParcelFileDescriptor vpnInterface;
     private volatile boolean starting;
@@ -62,6 +65,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             // Capture Android's underlying network before establishing the VPN.
             android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             android.net.Network underlying = cm == null ? null : cm.getActiveNetwork();
+            diag("Старт VPN; сеть Android=" + (underlying == null ? "не определена" : underlying.toString()));
             Builder builder = new Builder()
                     .setSession("VLESS Studio")
                     .setMtu(1400)
@@ -105,7 +109,7 @@ public class VlessVpnService extends VpnService implements DialerController {
                 throw new IllegalStateException("Android не создал VPN-интерфейс");
             }
 
-            Log.i(TAG, "VPN interface established; fd=" + vpnInterface.getFd()
+            diag("TUN создан; fd=" + vpnInterface.getFd()
                     + ", allowedApps=" + (allowedApps == null ? 0 : allowedApps.size()));
             LibXray.registerDialerController(this);
             LibXray.setDNS(this, DNS_SERVER + ":53");
@@ -124,7 +128,7 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject proxy = outbounds.getJSONObject(0);
             JSONObject streamSettings = proxy.optJSONObject("streamSettings");
-            Log.i(TAG, "Converted outbound: protocol=" + proxy.optString("protocol")
+            diag("Outbound: protocol=" + proxy.optString("protocol")
                     + ", network=" + (streamSettings == null ? "default" : streamSettings.optString("network"))
                     + ", security=" + (streamSettings == null ? "default" : streamSettings.optString("security"))
                     + ", outboundCount=" + outbounds.length());
@@ -176,10 +180,12 @@ public class VlessVpnService extends VpnService implements DialerController {
             }
 
             connected = true;
+            diag("Xray запущен; protectFd=" + protectCalls.get() + ", успешно=" + protectSuccess.get());
             starting = false;
             publishState(true, "VPN запущен · проверяем передачу трафика");
             Log.i(TAG, "Xray TUN started; protectFd calls=" + protectCalls.get() + ", success=" + protectSuccess.get() + "; core startup does not prove internet reachability");
         } catch (Exception e) {
+            diag("ОШИБКА запуска: " + Log.getStackTraceString(e));
             Log.e(TAG, "VPN startup failed", e);
             cleanupTunnel();
             starting = false;
@@ -208,7 +214,7 @@ public class VlessVpnService extends VpnService implements DialerController {
         long call = protectCalls.incrementAndGet();
         boolean ok = protect((int) fd);
         if (ok) protectSuccess.incrementAndGet();
-        Log.i(TAG, "protectFd call=" + call + " fd=" + fd + " result=" + ok);
+        diag("protectFd вызов=" + call + " fd=" + fd + " результат=" + ok + "; успешно всего=" + protectSuccess.get());
         return ok;
     }
 
@@ -232,6 +238,7 @@ public class VlessVpnService extends VpnService implements DialerController {
     }
 
     private void cleanupTunnel() {
+        diag("Очистка TUN; protectFd вызовов=" + protectCalls.get() + ", успешно=" + protectSuccess.get());
         try { LibXray.resetDNS(); } catch (Exception e) { Log.w(TAG, "DNS reset failed", e); }
         try {
             if (vpnInterface != null) {
