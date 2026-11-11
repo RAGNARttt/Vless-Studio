@@ -189,10 +189,13 @@ public class MainActivity extends Activity {
         public void checkTcpAsync(String host, int port, String serverId) {
             new Thread(() -> {
                 boolean ok = false;
+                long latencyMs = -1;
                 java.net.Socket socket = new java.net.Socket();
                 try {
                     if (host != null && !host.trim().isEmpty() && port > 0 && port <= 65535) {
-                        socket.connect(new java.net.InetSocketAddress(host.trim(), port), 2500);
+                        long startedAt = android.os.SystemClock.elapsedRealtime();
+                        socket.connect(new java.net.InetSocketAddress(host.trim(), port), 3500);
+                        latencyMs = android.os.SystemClock.elapsedRealtime() - startedAt;
                         ok = true;
                     }
                 } catch (Exception ignored) {
@@ -200,10 +203,11 @@ public class MainActivity extends Activity {
                     try { socket.close(); } catch (Exception ignored) {}
                 }
                 final boolean result = ok;
+                final long latency = latencyMs;
                 runOnUiThread(() -> {
                     if (webView != null) {
                         String safeId = org.json.JSONObject.quote(serverId == null ? "" : serverId);
-                        webView.evaluateJavascript("onTcpCheckResult(" + safeId + "," + result + ")", null);
+                        webView.evaluateJavascript("onTcpCheckResult(" + safeId + "," + result + "," + latency + ")", null);
                     }
                 });
             }, "vless-tcp-check").start();
