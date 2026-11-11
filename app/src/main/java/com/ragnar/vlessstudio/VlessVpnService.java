@@ -77,6 +77,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             // Capture Android's underlying network before establishing the VPN.
             android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             android.net.Network underlying = cm == null ? null : cm.getActiveNetwork();
+            String physicalInterface = getPhysicalInterfaceName();
             Builder builder = new Builder()
                     .setSession("VLESS Studio")
                     .setMtu(1400)
@@ -151,7 +152,9 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject tunSettings = new JSONObject()
                     .put("name", "vlessstudio")
-                    .put("mtu", 1400); // Android owns routing; proxy sockets are excluded with VpnService.protectFd.
+                    .put("mtu", 1400)
+                    .put("autoOutboundsInterface", physicalInterface);
+            Log.i(TAG, "Xray outbound sockets bound to " + physicalInterface);
             JSONObject tunInbound = new JSONObject()
                     .put("tag", "tun-in")
                     .put("port", 0)
