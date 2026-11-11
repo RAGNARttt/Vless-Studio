@@ -162,7 +162,7 @@ public class MainActivity extends Activity {
                 try {
                     return new org.json.JSONObject().put("success", false)
                             .put("error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()).toString();
-                } catch (org.json.JSONException ignored) { return "{\\"success\\":false,\\"error\\":\\"Ошибка загрузки\\"}"; }
+                } catch (org.json.JSONException ignored) { return "{}"; }
             } finally {
                 if (connection != null) connection.disconnect();
             }
