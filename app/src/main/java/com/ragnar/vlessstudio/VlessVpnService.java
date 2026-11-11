@@ -79,7 +79,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             android.net.Network underlying = cm == null ? null : cm.getActiveNetwork();
             Builder builder = new Builder()
                     .setSession("VLESS Studio")
-                    .setMtu(1500)
+                    .setMtu(1400)
                     .addAddress("10.64.0.1", 32)
                     .addRoute("0.0.0.0", 0)
                     .addDnsServer(DNS_SERVER);
@@ -106,10 +106,14 @@ public class VlessVpnService extends VpnService implements DialerController {
                 }
             }
 
-            // Carry IPv6 through the same tunnel to avoid leaking IPv6 outside the VPN.
+            // Route IPv6 through the same TUN as IPv4; otherwise IPv6-capable apps
+            // can bypass the proxy or stall while waiting for IPv4 fallback.
+            builder.addAddress("fd64:6c65:7373::1", 128);
+            builder.addRoute("::", 0);
+            builder.addDnsServer("2606:4700:4700::1111");
 
-            // Pin the VPN to the physical network that existed before TUN creation.
-            if (underlying != null) setUnderlyingNetworks(new android.net.Network[]{underlying});
+            // Explicitly tell Android which physical network carries VPN sockets.
+            if (underlying != null) builder.setUnderlyingNetworks(new android.net.Network[]{underlying});
             // Start with IPv4 only while isolating the Android TUN data path.
             vpnInterface = builder.establish();
             if (vpnInterface == null) {
@@ -147,7 +151,7 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject tunSettings = new JSONObject()
                     .put("name", "vlessstudio")
-                    .put("mtu", 1500); // Android owns routing; proxy sockets are excluded with VpnService.protectFd.
+                    .put("mtu", 1400); // Android owns routing; proxy sockets are excluded with VpnService.protectFd.
             JSONObject tunInbound = new JSONObject()
                     .put("tag", "tun-in")
                     .put("port", 0)
@@ -172,7 +176,7 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .put("outbounds", outbounds)
                     .put("routing", new JSONObject().put("rules", routingRules));
 
-            Log.i(TAG, "Starting Xray with IPv4 TUN route; Android manages routes and protected proxy sockets; fd=" + vpnInterface.getFd());
+            Log.i(TAG, "Starting Xray with dual-stack TUN MTU 1400; Android manages routes and protected proxy sockets; fd=" + vpnInterface.getFd());
             JSONObject response = invoke("runXray",
                     new JSONObject().put("xrayJson", config.toString()));
             if (!response.optBoolean("success", false)) {
