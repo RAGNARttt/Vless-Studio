@@ -21,9 +21,14 @@ public class VlessVpnService extends VpnService implements DialerController {
     public static final String ACTION_STATE = "com.ragnar.vlessstudio.VPN_STATE";
     public static final String EXTRA_SHARE_LINK = "share_link";
     private static final String DNS_SERVER = "1.1.1.1";
-    private static volatile String lastDiagnostic = "VPN ещё не запускался";
-    private static void diag(String value) { lastDiagnostic = java.text.DateFormat.getDateTimeInstance().format(new java.util.Date()) + "\\n" + value; Log.i(TAG, value); }
-    public static String getDiagnostics() { return lastDiagnostic; }
+    private static final StringBuilder diagnosticLog = new StringBuilder("VLESS Studio VPN diagnostics\\n");
+    private static synchronized void diag(String value) {
+        String line = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date()) + " " + value;
+        diagnosticLog.append(line).append("\\n");
+        if (diagnosticLog.length() > 12000) diagnosticLog.delete(0, diagnosticLog.length() - 12000);
+        Log.i(TAG, value);
+    }
+    public static synchronized String getDiagnostics() { return diagnosticLog.toString(); }
 
     private ParcelFileDescriptor vpnInterface;
     private volatile boolean starting;
