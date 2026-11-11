@@ -233,7 +233,7 @@
           <div class="grid grid-cols-2 gap-2"><button onclick="addSubscription()" class="glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-plus mr-2"></i>Добавить</button><button onclick="importSingleConfig()" class="glass-panel rounded-xl py-3 font-semibold"><i class="fa-solid fa-link mr-2"></i>Импорт ссылки</button></div>
         </div>
         <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Мои подписки</h3><button onclick="refreshAllSubscriptions()" class="text-brand-400 text-sm"><i class="fa-solid fa-rotate mr-1"></i>Обновить все</button></div><div id="subscription-list" class="space-y-3"><p class="text-sm text-slate-400">Подписок пока нет.</p></div></div>
-        <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Серверы</h3><button onclick="checkAllServers()" class="text-emerald-400 text-sm"><i class="fa-solid fa-heart-pulse mr-1"></i>Проверить все</button></div><div id="subscription-servers" class="space-y-2"><p class="text-sm text-slate-400">Серверы появятся после импорта.</p></div></div>
+        <div class="glass-panel rounded-2xl p-5"><div class="flex flex-wrap justify-between items-center gap-2 mb-3"><h3 class="font-bold text-white">Серверы</h3><div class="flex items-center gap-3"><select id="server-sort" onchange="sortServers(this.value)" class="glass-input rounded-lg px-2 py-2 text-xs"><option value="best">Сначала лучшие</option><option value="latency">По пингу</option><option value="status">По статусу</option><option value="original">Как в подписке</option></select><button onclick="checkAllServers()" class="text-emerald-400 text-sm"><i class="fa-solid fa-heart-pulse mr-1"></i>Проверить все</button></div></div><div id="subscription-servers" class="space-y-2"><p class="text-sm text-slate-400">Серверы появятся после импорта.</p></div></div>
       </div>
 
         <!-- Existing tools container -->
@@ -1297,18 +1297,32 @@
           if(el)el.textContent=count===0?'Через VPN идут все приложения':'Через VPN выбрано приложений: '+count+' · переподключи VPN';
         }
         const pendingTcpChecks=new Set();
-        function onTcpCheckResult(id,ok){
+        let serverSortMode=localStorage.getItem('vlessStudio.serverSort')||'best';
+        function sortServers(mode){
+          serverSortMode=mode||'best';localStorage.setItem('vlessStudio.serverSort',serverSortMode);
+          const rank={online:0,checking:1,unknown:2,offline:3};
+          savedServers.sort((a,b)=>{
+            if(serverSortMode==='original')return (a.importOrder||0)-(b.importOrder||0);
+            if(serverSortMode==='latency'){
+              const av=a.latencyMs>=0?a.latencyMs:999999,bv=b.latencyMs>=0?b.latencyMs:999999;
+              return av-bv;
+            }
+            if(serverSortMode==='status')return (rank[a.checkStatus]??2)-(rank[b.checkStatus]??2);
+            const d=(rank[a.checkStatus]??2)-(rank[b.checkStatus]??2);
+            if(d)return d;
+            return (a.latencyMs>=0?a.latencyMs:999999)-(b.latencyMs>=0?b.latencyMs:999999);
+          });
+          persistSubscriptions();renderSubscriptionUi();
+        }
+        function onTcpCheckResult(id,ok,latencyMs){
           const srv=savedServers.find(x=>x.id===id);if(!srv)return;
-          srv.checkStatus=ok?'online':'offline';srv.checkMessage=ok?'Порт отвечает':'Нет ответа на порту';srv.checkTime=new Date().toISOString();
+          srv.checkStatus=ok?'online':'offline';srv.latencyMs=ok?Number(latencyMs):-1;
+          srv.checkMessage=ok?'TCP отвечает за '+srv.latencyMs+' мс':'Нет ответа на порту';srv.checkTime=new Date().toISOString();
           pendingTcpChecks.delete(id);persistSubscriptions();renderSubscriptionUi();
           if(pendingTcpChecks.size===0){
-            savedServers.sort((a,b)=>{
-              const rank={online:0,checking:1,unknown:2,offline:3};
-              return (rank[a.checkStatus]??2)-(rank[b.checkStatus]??2);
-            });
-            persistSubscriptions();renderSubscriptionUi();
+            sortServers(serverSortMode);
             const online=savedServers.filter(x=>x.checkStatus==='online').length;
-            showToast('Проверка завершена: порт доступен у '+online+' из '+savedServers.length);
+            showToast('Проверка завершена: порт доступен у '+online+' из '+savedServers.length+' · сортировка обновлена');
           }
         }
         function checkAllServers(){
@@ -1337,7 +1351,7 @@
           if(!subEl)return;
           subEl.innerHTML=subscriptions.length?subscriptions.map(x=>'<div class="server-row"><div class="min-w-0 flex-1"><div class="font-semibold text-white truncate">'+escapeHtml(x.name)+'</div><div class="text-xs text-slate-400 truncate">'+escapeHtml(x.url)+'</div><div class="text-xs '+(x.error?'text-red-400':'text-slate-500')+' mt-1">'+(x.error?escapeHtml(x.error):(x.updatedAt?'Обновлено: '+new Date(x.updatedAt).toLocaleString():'Ожидает загрузки'))+'</div></div><button onclick="refreshSubscription(\''+x.id+'\')" class="text-brand-400 p-2" title="Обновить"><i class="fa-solid fa-rotate"></i></button><button onclick="removeSubscription(\''+x.id+'\')" class="text-red-400 p-2" title="Удалить"><i class="fa-solid fa-trash"></i></button></div>').join(''):'<p class="text-sm text-slate-400">Подписок пока нет.</p>';
           const rows=savedServers.map(x=>{
-            const status=x.checkStatus==='online'?'<span class="text-xs text-emerald-400">● Порт доступен</span>':x.checkStatus==='offline'?'<span class="text-xs text-red-400">● Нет связи</span>':x.checkStatus==='checking'?'<span class="text-xs text-amber-300">● Проверка…</span>':'<span class="text-xs text-slate-500">● Не проверен</span>';
+            const status=x.checkStatus==='online'?'<span class="text-xs text-emerald-400">● Порт отвечает · '+(Number.isFinite(x.latencyMs)?x.latencyMs+' мс':'доступен')+'</span>':x.checkStatus==='offline'?'<span class="text-xs text-red-400">● Нет ответа</span>':x.checkStatus==='checking'?'<span class="text-xs text-amber-300">● Проверка…</span>':'<span class="text-xs text-slate-500">● Не проверен</span>';
             return '<div class="server-row"><div class="w-9 h-9 rounded-xl bg-brand-500/15 text-brand-400 grid place-items-center"><i class="fa-solid fa-server"></i></div><div class="min-w-0 flex-1"><div class="font-semibold text-white truncate">'+escapeHtml(x.name)+'</div><div class="text-xs text-slate-400">'+escapeHtml(x.protocol)+' · '+(x.subscriptionId==='manual'?'Вручную':'Подписка')+'</div><div class="mt-1">'+status+'</div></div><div class="flex flex-col gap-1 items-end"><button onclick="selectServer(\''+x.id+'\')" class="text-brand-400 text-sm px-1">Выбрать</button><button onclick="removeServer(\''+x.id+'\')" class="text-slate-500 px-1"><i class="fa-solid fa-trash"></i></button></div></div>';
           }).join('');
           srvEl.innerHTML=rows||'<p class="text-sm text-slate-400">Серверов пока нет.</p>';homeEl.innerHTML=rows||'<p class="text-sm text-slate-400">Добавь подписку или отдельную конфигурацию.</p>';
