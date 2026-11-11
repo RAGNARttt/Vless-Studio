@@ -233,7 +233,7 @@
           <div class="grid grid-cols-2 gap-2"><button onclick="addSubscription()" class="glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-plus mr-2"></i>Добавить</button><button onclick="importSingleConfig()" class="glass-panel rounded-xl py-3 font-semibold"><i class="fa-solid fa-link mr-2"></i>Импорт ссылки</button></div>
         </div>
         <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Мои подписки</h3><button onclick="refreshAllSubscriptions()" class="text-brand-400 text-sm"><i class="fa-solid fa-rotate mr-1"></i>Обновить все</button></div><div id="subscription-list" class="space-y-3"><p class="text-sm text-slate-400">Подписок пока нет.</p></div></div>
-        <div class="glass-panel rounded-2xl p-5"><div class="flex flex-wrap justify-between items-center gap-2 mb-3"><h3 class="font-bold text-white">Серверы</h3><div class="flex items-center gap-3"><select id="server-sort" onchange="sortServers(this.value)" class="glass-input rounded-lg px-2 py-2 text-xs"><option value="best">Сначала лучшие</option><option value="latency">По пингу</option><option value="status">По статусу</option><option value="original">Как в подписке</option></select><button onclick="checkAllServers()" class="text-emerald-400 text-sm"><i class="fa-solid fa-heart-pulse mr-1"></i>Проверить все</button></div></div><div id="subscription-servers" class="space-y-2"><p class="text-sm text-slate-400">Серверы появятся после импорта.</p></div></div>
+        <div class="glass-panel rounded-2xl p-5"><div class="flex flex-wrap justify-between items-center gap-2 mb-3"><h3 class="font-bold text-white">Серверы</h3><div class="flex items-center gap-3"><select id="server-sort" onchange="sortServers(this.value)" class="glass-input rounded-lg px-2 py-2 text-xs"><option value="best">Сначала лучшие</option><option value="latency">По пингу</option><option value="status">По статусу</option></select><button onclick="checkAllServers()" class="text-emerald-400 text-sm"><i class="fa-solid fa-heart-pulse mr-1"></i>Проверить все</button></div></div><div id="subscription-servers" class="space-y-2"><p class="text-sm text-slate-400">Серверы появятся после импорта.</p></div></div>
       </div>
 
         <!-- Existing tools container -->
@@ -1302,7 +1302,6 @@
           serverSortMode=mode||'best';localStorage.setItem('vlessStudio.serverSort',serverSortMode);
           const rank={online:0,checking:1,unknown:2,offline:3};
           savedServers.sort((a,b)=>{
-            if(serverSortMode==='original')return (a.importOrder||0)-(b.importOrder||0);
             if(serverSortMode==='latency'){
               const av=a.latencyMs>=0?a.latencyMs:999999,bv=b.latencyMs>=0?b.latencyMs:999999;
               return av-bv;
@@ -1355,7 +1354,7 @@
             return '<div class="server-row"><div class="w-9 h-9 rounded-xl bg-brand-500/15 text-brand-400 grid place-items-center"><i class="fa-solid fa-server"></i></div><div class="min-w-0 flex-1"><div class="font-semibold text-white truncate">'+escapeHtml(x.name)+'</div><div class="text-xs text-slate-400">'+escapeHtml(x.protocol)+' · '+(x.subscriptionId==='manual'?'Вручную':'Подписка')+'</div><div class="mt-1">'+status+'</div></div><div class="flex flex-col gap-1 items-end"><button onclick="selectServer(\''+x.id+'\')" class="text-brand-400 text-sm px-1">Выбрать</button><button onclick="removeServer(\''+x.id+'\')" class="text-slate-500 px-1"><i class="fa-solid fa-trash"></i></button></div></div>';
           }).join('');
           srvEl.innerHTML=rows||'<p class="text-sm text-slate-400">Серверов пока нет.</p>';homeEl.innerHTML=rows||'<p class="text-sm text-slate-400">Добавь подписку или отдельную конфигурацию.</p>';
-          const active=savedServers.find(x=>x.id===activeServerId);document.getElementById('home-active-server').textContent=active?active.name:'Сервер не выбран';
+          const sortControl=document.getElementById('server-sort');if(sortControl)sortControl.value=serverSortMode;const active=savedServers.find(x=>x.id===activeServerId);document.getElementById('home-active-server').textContent=active?active.name:'Сервер не выбран';
         }
         function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
         document.addEventListener('DOMContentLoaded',()=>{renderSubscriptionUi();switchTab('home');});
