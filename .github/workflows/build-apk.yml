@@ -162,6 +162,32 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Bundle Tailwind CSS for offline Android WebView
+        run: |
+          cat > tailwind.config.cjs <<'EOF'
+          module.exports = {
+            content: ['./app/src/main/assets/index.html'],
+            darkMode: 'class',
+            theme: {
+              extend: {
+                colors: {
+                  brand: { 50: '#eef2ff', 100: '#e0e7ff', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 900: '#312e81' },
+                  cyber: { dark: '#0b0f19', card: 'rgba(17, 24, 39, 0.7)', accent: '#00f0ff', purple: '#7000ff', green: '#10b981' }
+                }
+              }
+            },
+            safelist: [
+              { pattern: /^(bg|text|border|ring|from|to|via)-(brand|red|green|emerald|amber|slate|gray|white|black)-(50|100|200|300|400|500|600|700|800|900)$/ },
+              'hidden','flex','grid','block','inline-flex'
+            ],
+            plugins: []
+          };
+          EOF
+          printf '@tailwind base;\n@tailwind components;\n@tailwind utilities;\n' > tailwind.input.css
+          npx --yes tailwindcss@3.4.17 -c tailwind.config.cjs -i tailwind.input.css -o app/src/main/assets/tailwind.css --minify
+          test -s app/src/main/assets/tailwind.css
+          echo "Bundled Tailwind CSS: $(wc -c < app/src/main/assets/tailwind.css) bytes"
+
       - name: Build APK
         run: gradle assembleDebug
 
