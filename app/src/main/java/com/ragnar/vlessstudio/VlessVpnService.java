@@ -25,6 +25,8 @@ public class VlessVpnService extends VpnService implements DialerController {
     private ParcelFileDescriptor vpnInterface;
     private volatile boolean starting;
     private volatile boolean connected;
+    private final java.util.concurrent.atomic.AtomicLong protectCalls = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong protectSuccess = new java.util.concurrent.atomic.AtomicLong();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -75,6 +77,8 @@ public class VlessVpnService extends VpnService implements DialerController {
             // Resolve the physical uplink before establishing the VPN.
             // Android Xray TUN requires a real interface name; "auto" is unsupported.
             String physicalInterface = getPhysicalInterfaceName();
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            android.net.Network underlying = cm == null ? null : cm.getActiveNetwork();
             Builder builder = new Builder()
                     .setSession("VLESS Studio")
                     .setMtu(1500)
@@ -105,10 +109,10 @@ public class VlessVpnService extends VpnService implements DialerController {
             }
 
             // Carry IPv6 through the same tunnel to avoid leaking IPv6 outside the VPN.
-            builder.addAddress("fd64:6c65:7373::1", 128);
-            builder.addRoute("::", 0);
-            builder.addDnsServer("2606:4700:4700::1111");
 
+            // Pin the VPN to the physical network that existed before TUN creation.
+            if (underlying != null) setUnderlyingNetworks(new android.net.Network[]{underlying});
+            // Start with IPv4 only while isolating the Android TUN data path.
             vpnInterface = builder.establish();
             if (vpnInterface == null) {
                 throw new IllegalStateException("Android не создал VPN-интерфейс");
@@ -172,7 +176,7 @@ public class VlessVpnService extends VpnService implements DialerController {
                     .put("outbounds", outbounds)
                     .put("routing", new JSONObject().put("rules", routingRules));
 
-            Log.i(TAG, "Starting Xray with TUN inbound, IPv4+IPv6 default routes and proxy DNS");
+            Log.i(TAG, "Starting Xray with IPv4 TUN route, physical network pinned, proxy DNS; fd=" + vpnInterface.getFd());
             JSONObject response = invoke("runXray",
                     new JSONObject().put("xrayJson", config.toString()));
             if (!response.optBoolean("success", false)) {
@@ -188,7 +192,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             connected = true;
             starting = false;
             publishState(true, "VPN запущен · проверяем передачу трафика");
-            Log.i(TAG, "Xray TUN started; core startup does not prove internet reachability");
+            Log.i(TAG, "Xray TUN started; protectFd calls=" + protectCalls.get() + ", success=" + protectSuccess.get() + "; core startup does not prove internet reachability");
         } catch (Exception e) {
             Log.e(TAG, "VPN startup failed", e);
             cleanupTunnel();
@@ -215,7 +219,11 @@ public class VlessVpnService extends VpnService implements DialerController {
 
     @Override
     public boolean protectFd(long fd) {
-        return protect((int) fd);
+        long call = protectCalls.incrementAndGet();
+        boolean ok = protect((int) fd);
+        if (ok) protectSuccess.incrementAndGet();
+        Log.i(TAG, "protectFd call=" + call + " fd=" + fd + " result=" + ok);
+        return ok;
     }
 
     private void stopVpn() {
