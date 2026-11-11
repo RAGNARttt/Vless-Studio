@@ -109,6 +109,39 @@ jobs:
           '''
           p.write_text(s)
           PY
+          # libXray.RunXray does not read the custom top-level "env" field.
+          # Apply those values to the Go process environment before core.New starts
+          # the Android TUN inbound, which reads xray.tun.fd via os.Getenv.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("xray/xray.go")
+          s = p.read_text()
+          if '"encoding/json"' not in s:
+              s = s.replace('import (\n', 'import (\n\t"encoding/json"\n\t"os"\n', 1)
+          old = '''func RunXray(xrayJSON string) error {
+          	coreServerMu.Lock()
+          	defer coreServerMu.Unlock()
+          	if coreServer != nil {'''
+          new = '''func RunXray(xrayJSON string) error {
+          	coreServerMu.Lock()
+          	defer coreServerMu.Unlock()
+          	var envConfig struct {
+          		Env map[string]string `json:"env"`
+          	}
+          	if err := json.Unmarshal([]byte(xrayJSON), &envConfig); err != nil {
+          		return err
+          	}
+          	for key, value := range envConfig.Env {
+          		if err := os.Setenv(key, value); err != nil {
+          			return err
+          		}
+          	}
+          	if coreServer != nil {'''
+          if old not in s:
+              raise SystemExit("Could not find RunXray function to patch")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
           python3 build/main.py android
           mkdir -p ../app/libs
           cp libXray.aar ../app/libs/
