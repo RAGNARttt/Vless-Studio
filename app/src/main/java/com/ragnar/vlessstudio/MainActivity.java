@@ -109,6 +109,23 @@ public class MainActivity extends Activity {
 
     private final class AndroidVpnBridge {
         @JavascriptInterface
+        public void showDiagnostics() {
+            runOnUiThread(() -> {
+                String report = VlessVpnService.getDiagnostics();
+                new android.app.AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Диагностика VPN")
+                        .setMessage(report)
+                        .setPositiveButton("Копировать", (dialog, which) -> {
+                            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                            if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("VPN diagnostics", report));
+                            android.widget.Toast.makeText(MainActivity.this, "Диагностика скопирована", android.widget.Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("Закрыть", null)
+                        .show();
+            });
+        }
+
+        @JavascriptInterface
         public String getClipboardText() {
             try {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
