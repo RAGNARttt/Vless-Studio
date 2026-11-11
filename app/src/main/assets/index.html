@@ -1241,8 +1241,17 @@
           const sub=subscriptions.find(x=>x.id===id);if(!sub)return;
           sub.error=null;renderSubscriptionUi();
           try{
-            const response=await fetch(sub.url,{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);
-            const body=safeDecodeSub(await response.text());
+            let rawBody;
+            if(window.AndroidVpnBridge && typeof AndroidVpnBridge.fetchSubscription==='function'){
+              const nativeResult=JSON.parse(AndroidVpnBridge.fetchSubscription(sub.url));
+              if(!nativeResult.success)throw new Error(nativeResult.error||'Не удалось загрузить подписку');
+              rawBody=nativeResult.body;
+            }else{
+              const response=await fetch(sub.url,{cache:'no-store'});
+              if(!response.ok)throw new Error('HTTP '+response.status);
+              rawBody=await response.text();
+            }
+            const body=safeDecodeSub(rawBody);
             const links=body.split(/[\r\n]+/).map(x=>x.trim()).filter(x=>/^(vless|vmess|trojan|ss):\/\//i.test(x));
             if(!links.length)throw new Error('В ответе не найдены поддерживаемые ссылки');
             savedServers=savedServers.filter(x=>x.subscriptionId!==id);
