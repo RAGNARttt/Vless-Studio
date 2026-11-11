@@ -126,6 +126,49 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String fetchSubscription(String url) {
+            java.net.HttpURLConnection connection = null;
+            try {
+                if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) {
+                    throw new IllegalArgumentException("Разрешены только HTTP/HTTPS ссылки");
+                }
+                java.net.URL parsed = new java.net.URL(url);
+                connection = (java.net.HttpURLConnection) parsed.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(12000);
+                connection.setReadTimeout(20000);
+                connection.setInstanceFollowRedirects(true);
+                connection.setRequestProperty("User-Agent", "VLESS-Studio/1.0");
+                connection.setRequestProperty("Accept", "text/plain, application/octet-stream, */*");
+                int status = connection.getResponseCode();
+                java.io.InputStream input = status >= 200 && status < 400
+                        ? connection.getInputStream() : connection.getErrorStream();
+                if (input == null) throw new java.io.IOException("HTTP " + status);
+                java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                int total = 0, count;
+                while ((count = input.read(buffer)) != -1) {
+                    total += count;
+                    if (total > 2 * 1024 * 1024) throw new java.io.IOException("Подписка превышает 2 МБ");
+                    output.write(buffer, 0, count);
+                }
+                input.close();
+                if (status < 200 || status >= 300) throw new java.io.IOException("HTTP " + status);
+                org.json.JSONObject result = new org.json.JSONObject();
+                result.put("success", true);
+                result.put("body", new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+                return result.toString();
+            } catch (Exception e) {
+                try {
+                    return new org.json.JSONObject().put("success", false)
+                            .put("error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()).toString();
+                } catch (org.json.JSONException ignored) { return "{\\"success\\":false,\\"error\\":\\"Ошибка загрузки\\"}"; }
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }
+
+        @JavascriptInterface
         public void checkTcpAsync(String host, int port, String serverId) {
             new Thread(() -> {
                 boolean ok = false;
