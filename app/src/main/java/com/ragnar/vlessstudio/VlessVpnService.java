@@ -57,27 +57,11 @@ public class VlessVpnService extends VpnService implements DialerController {
         return START_NOT_STICKY;
     }
 
-    private String getPhysicalInterfaceName() throws Exception {
-        android.net.ConnectivityManager cm =
-                (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        if (cm == null) throw new IllegalStateException("Не удалось получить ConnectivityManager");
-        android.net.Network network = cm.getActiveNetwork();
-        if (network == null) throw new IllegalStateException("Нет активной сети до запуска VPN");
-        android.net.LinkProperties properties = cm.getLinkProperties(network);
-        String name = properties == null ? null : properties.getInterfaceName();
-        if (name == null || name.trim().isEmpty() || name.startsWith("tun")) {
-            throw new IllegalStateException("Не удалось определить физический сетевой интерфейс Android");
-        }
-        Log.i(TAG, "Physical uplink interface: " + name);
-        return name;
-    }
-
     private void startVpn(String shareLink, int startId) {
         try {
             // Capture Android's underlying network before establishing the VPN.
             android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             android.net.Network underlying = cm == null ? null : cm.getActiveNetwork();
-            String physicalInterface = getPhysicalInterfaceName();
             Builder builder = new Builder()
                     .setSession("VLESS Studio")
                     .setMtu(1400)
@@ -152,9 +136,8 @@ public class VlessVpnService extends VpnService implements DialerController {
 
             JSONObject tunSettings = new JSONObject()
                     .put("name", "vlessstudio")
-                    .put("mtu", 1400)
-                    .put("autoOutboundsInterface", physicalInterface);
-            Log.i(TAG, "Xray outbound sockets bound to " + physicalInterface);
+                    .put("mtu", 1400);
+            Log.i(TAG, "Xray TUN configured without netlink interface auto-detection; protected sockets use VpnService.protectFd");
             JSONObject tunInbound = new JSONObject()
                     .put("tag", "tun-in")
                     .put("port", 0)
