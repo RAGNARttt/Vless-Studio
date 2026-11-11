@@ -31,6 +31,9 @@ public class VlessVpnService extends VpnService implements DialerController {
     public static synchronized String getDiagnostics() { return diagnosticLog.toString(); }
 
     private ParcelFileDescriptor vpnInterface;
+    private android.net.ConnectivityManager connectivityManager;
+    private android.net.ConnectivityManager.NetworkCallback physicalNetworkCallback;
+    private final java.util.concurrent.ConcurrentHashMap<android.net.Network, android.net.NetworkCapabilities> physicalNetworks = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile boolean starting;
     private volatile boolean connected;
     private final java.util.concurrent.atomic.AtomicLong protectCalls = new java.util.concurrent.atomic.AtomicLong();
@@ -112,6 +115,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             if (vpnInterface == null) {
                 throw new IllegalStateException("Android не создал VPN-интерфейс");
             }
+            registerPhysicalNetworkMonitor(cm, underlying);
 
             diag("TUN создан; fd=" + vpnInterface.getFd()
                     + ", allowedApps=" + (allowedApps == null ? 0 : allowedApps.size()));
@@ -200,6 +204,84 @@ public class VlessVpnService extends VpnService implements DialerController {
         }
     }
 
+
+    // Keep Xray's protected sockets bound to the currently available physical
+    // network. This avoids pinning the VPN to a stale Wi-Fi/cellular network.
+    private void registerPhysicalNetworkMonitor(android.net.ConnectivityManager cm, android.net.Network initial) {
+        if (cm == null) return;
+        connectivityManager = cm;
+        android.net.NetworkRequest request = new android.net.NetworkRequest.Builder()
+                .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build();
+        physicalNetworkCallback = new android.net.ConnectivityManager.NetworkCallback() {
+            @Override public void onAvailable(android.net.Network network) {
+                refreshPhysicalNetwork(network, cm);
+            }
+            @Override public void onCapabilitiesChanged(android.net.Network network, android.net.NetworkCapabilities caps) {
+                physicalNetworks.put(network, caps);
+                applyBestUnderlyingNetwork();
+            }
+            @Override public void onLost(android.net.Network network) {
+                physicalNetworks.remove(network);
+                applyBestUnderlyingNetwork();
+            }
+        };
+        try {
+            for (android.net.Network network : cm.getAllNetworks()) refreshPhysicalNetwork(network, cm);
+            cm.registerNetworkCallback(request, physicalNetworkCallback);
+            if (initial != null && !physicalNetworks.containsKey(initial)) refreshPhysicalNetwork(initial, cm);
+            applyBestUnderlyingNetwork();
+            diag("Монитор физических сетей запущен");
+        } catch (Exception e) {
+            diag("Не удалось включить монитор сети: " + e.getMessage());
+        }
+    }
+
+    private void refreshPhysicalNetwork(android.net.Network network, android.net.ConnectivityManager cm) {
+        try {
+            android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(network);
+            if (caps != null
+                    && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+                physicalNetworks.put(network, caps);
+                applyBestUnderlyingNetwork();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Physical network refresh failed", e);
+        }
+    }
+
+    private synchronized void applyBestUnderlyingNetwork() {
+        if (vpnInterface == null || connectivityManager == null) return;
+        android.net.Network best = null;
+        int bestScore = -1;
+        for (java.util.Map.Entry<android.net.Network, android.net.NetworkCapabilities> entry : physicalNetworks.entrySet()) {
+            android.net.NetworkCapabilities caps = entry.getValue();
+            int score = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) ? 10 : 0;
+            if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)) score += 3;
+            if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)) score += 2;
+            if (score > bestScore) { bestScore = score; best = entry.getKey(); }
+        }
+        try {
+            setUnderlyingNetworks(best == null ? new android.net.Network[0] : new android.net.Network[]{best});
+            diag("Физическая сеть VPN обновлена: " + (best == null ? "нет" : best.toString()));
+        } catch (Exception e) {
+            diag("Ошибка смены физической сети: " + e.getMessage());
+        }
+    }
+
+    private void unregisterPhysicalNetworkMonitor() {
+        try {
+            if (connectivityManager != null && physicalNetworkCallback != null) {
+                connectivityManager.unregisterNetworkCallback(physicalNetworkCallback);
+            }
+        } catch (Exception ignored) {}
+        physicalNetworkCallback = null;
+        connectivityManager = null;
+        physicalNetworks.clear();
+    }
+
     private JSONObject invoke(String method, JSONObject payload) throws Exception {
         JSONObject request = new JSONObject()
                 .put("apiVersion", 3)
@@ -242,6 +324,7 @@ public class VlessVpnService extends VpnService implements DialerController {
     }
 
     private void cleanupTunnel() {
+        unregisterPhysicalNetworkMonitor();
         diag("Очистка TUN; protectFd вызовов=" + protectCalls.get() + ", успешно=" + protectSuccess.get());
         try { LibXray.resetDNS(); } catch (Exception e) { Log.w(TAG, "DNS reset failed", e); }
         try {
