@@ -735,7 +735,25 @@
         let autoFailoverPending=false;
         function setAutoFailover(enabled){autoFailoverEnabled=!!enabled;localStorage.setItem(AUTO_FAILOVER_KEY,String(autoFailoverEnabled));const info=document.getElementById("auto-failover-info");if(info)info.textContent=autoFailoverEnabled?"Включено · переключение после 3 неудачных проверок":"Отключено";showToast(autoFailoverEnabled?"Автопереключение включено":"Автопереключение отключено");}
         function onVpnHealthResult(ok,elapsed){if(!autoFailoverEnabled||!vpnUiConnected||autoFailoverPending)return;if(ok){vpnHealthFailures=0;return;}vpnHealthFailures++;showToast("Нет ответа от VPN ("+vpnHealthFailures+"/3)");if(vpnHealthFailures>=3){autoFailoverPending=true;vpnHealthFailures=0;showToast("Сервер не отвечает. Ищу резервный…");checkAllServers();}}
-        function performAutoFailover(){if(!autoFailoverPending)return;autoFailoverPending=false;const candidates=savedServers.filter(x=>x.id!==activeServerId&&x.checkStatus==="online"&&x.link);candidates.sort((a,b)=>(a.latencyMs>=0?a.latencyMs:999999)-(b.latencyMs>=0?b.latencyMs:999999));const next=candidates[0];if(!next){showToast("Рабочий резервный сервер не найден","error");return;}activeServerId=next.id;localStorage.setItem("vlessStudio.activeServer",activeServerId);persistSubscriptions();renderSubscriptionUi();document.getElementById("home-active-server").textContent=next.name;if(window.AndroidVpnBridge&&AndroidVpnBridge.switchVpn){AndroidVpnBridge.switchVpn(next.link);showToast("Переключаюсь на "+next.name);}else showToast("Не удалось запустить автопереключение","error");}
+        function applyBestServer(excludeActive=false,connectIfOnline=false){
+          const candidates=savedServers.filter(x=>x.link&&x.checkStatus==="online"&&(!excludeActive||x.id!==activeServerId)&&Number.isFinite(Number(x.latencyMs))&&Number(x.latencyMs)>=0);
+          candidates.sort((a,b)=>Number(a.latencyMs)-Number(b.latencyMs));
+          const next=candidates[0];if(!next)return false;
+          const changed=activeServerId!==next.id;
+          activeServerId=next.id;localStorage.setItem("vlessStudio.activeServer",activeServerId);
+          persistSubscriptions();renderSubscriptionUi();
+          const label=document.getElementById("home-active-server");if(label)label.textContent=next.name;
+          const importInput=document.getElementById("import-url");if(importInput)importInput.value=next.link;
+          if(changed&&connectIfOnline&&vpnUiConnected&&window.AndroidVpnBridge&&AndroidVpnBridge.switchVpn){
+            AndroidVpnBridge.switchVpn(next.link);showToast("Выбран лучший сервер: "+next.name+" ("+next.latencyMs+" мс). Переключаю VPN…");
+          }else if(changed)showToast("Автоматически выбран лучший сервер: "+next.name+" ("+next.latencyMs+" мс)");
+          return true;
+        }
+        function performAutoFailover(){
+          if(!autoFailoverPending)return;
+          autoFailoverPending=false;
+          if(!applyBestServer(true,true))showToast("Рабочий резервный сервер не найден","error");
+        }
         function toggleVpnConnection() {
             if (vpnUiConnected) requestVpnDisconnect();
             else requestVpnConnect();
@@ -1374,6 +1392,8 @@
           pendingVlessChecks.clear();
           savedServers.forEach(srv=>{if(srv.checkStatus==='checking'){srv.checkStatus='unknown';srv.latencyMs=-1;srv.checkMessage='Проверка не вернула результат';}});
           persistSubscriptions();renderSubscriptionUi();sortServers(serverSortMode);
+          if(autoFailoverPending){performAutoFailover();}
+          else if(serverMode==='auto'){applyBestServer(false,true);}
           if(showSummary){
             const online=savedServers.filter(x=>x.checkStatus==='online').length;
             showToast('Проверка завершена: работает '+online+' из '+savedServers.length);
