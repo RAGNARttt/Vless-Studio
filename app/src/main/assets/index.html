@@ -1277,41 +1277,45 @@
           persistSubscriptions();renderSubscriptionUi();field.value='';showToast('Конфигурация добавлена');
         }
         function xrayJsonToShareLinks(text){
-          const parsed=JSON.parse(text);
-          const outbounds=[];
-          const seen=new Set();
-          function findOutbounds(node,depth=0){
-            if(!node||typeof node!=='object'||depth>12||seen.has(node))return;
-            seen.add(node);
-            if(Array.isArray(node.outbounds))outbounds.push(...node.outbounds);
-            if(Array.isArray(node)){for(const item of node)findOutbounds(item,depth+1);}
-            else{for(const value of Object.values(node))if(value&&typeof value==='object')findOutbounds(value,depth+1);}
-          }
-          findOutbounds(parsed);
-          const links=[];
-          const enc=s=>encodeURIComponent(String(s??''));
-          for(const ob of outbounds){
-            if(!ob||!ob.protocol||!ob.settings)continue;
-            const p=String(ob.protocol).toLowerCase(),st=ob.streamSettings||{},net=st.network||'tcp',sec=st.security||'none',tls=st.tlsSettings||{},reality=st.realitySettings||{},sni=tls.serverName||reality.serverName||'',fp=reality.fingerprint||tls.fingerprint||'',remark=ob.tag||p.toUpperCase()+' Server';
-            const params=new URLSearchParams();params.set('type',net);params.set('security',sec);if(sni)params.set('sni',sni);if(fp)params.set('fp',fp);
-            if(sec==='reality'){if(reality.publicKey)params.set('pbk',reality.publicKey);if(reality.shortId)params.set('sid',reality.shortId);}
-            if(net==='ws'){const ws=st.wsSettings||{};params.set('path',ws.path||'/');const host=ws.headers?.Host||ws.headers?.host;if(host)params.set('host',host);}
-            if(net==='grpc')params.set('serviceName',st.grpcSettings?.serviceName||'');
-            if(p==='vless'){
-              const sv=ob.settings.vnext?.[0],u=sv?.users?.[0];if(!sv||!u?.id)continue;
-              const host=String(sv.address);links.push('vless://'+u.id+'@'+(host.includes(':')?'['+host+']':host)+':'+sv.port+'?'+params.toString()+'&encryption='+enc(u.encryption||'none')+(u.flow?'&flow='+enc(u.flow):'')+'#'+enc(remark));
-            }else if(p==='vmess'){
-              const sv=ob.settings.vnext?.[0],u=sv?.users?.[0];if(!sv||!u?.id)continue;
-              const obj={v:'2',ps:remark,add:sv.address,port:String(sv.port),id:u.id,aid:String(u.alterId??0),scy:u.security||'auto',net,type:'none',host:st.wsSettings?.headers?.Host||'',path:st.wsSettings?.path||'',tls:sec==='tls'?'tls':''};if(sni)obj.sni=sni;
-              links.push('vmess://'+btoa(unescape(encodeURIComponent(JSON.stringify(obj)))));
-            }else if(p==='trojan'){
-              const sv=ob.settings.servers?.[0];if(!sv?.password)continue;
-              const host=String(sv.address);if(sec==='none')params.set('security','tls');
-              links.push('trojan://'+enc(sv.password)+'@'+(host.includes(':')?'['+host+']':host)+':'+sv.port+'?'+params.toString()+'#'+enc(remark));
-            }
-          }
-          return links;
-        }
+  const parsed=JSON.parse(text);
+  const profiles=Array.isArray(parsed)?parsed:[parsed];
+  const links=[];
+  const enc=s=>encodeURIComponent(String(s==null?'':s));
+  for(const profile of profiles){
+    const outbounds=Array.isArray(profile&&profile.outbounds)?profile.outbounds:[];
+    for(const ob of outbounds){
+      if(!ob||!ob.protocol||!ob.settings)continue;
+      const p=String(ob.protocol).toLowerCase();
+      if(['vless','vmess','trojan','shadowsocks'].indexOf(p)<0)continue;
+      const st=ob.streamSettings||{},net=st.network||'tcp',sec=st.security||'none';
+      const tls=st.tlsSettings||{},reality=st.realitySettings||{};
+      const sni=tls.serverName||reality.serverName||'',fp=reality.fingerprint||tls.fingerprint||'';
+      const remark=ob.tag||p.toUpperCase()+' Server';
+      const params=new URLSearchParams();params.set('type',net);params.set('security',sec);
+      if(sni)params.set('sni',sni);if(fp)params.set('fp',fp);
+      if(sec==='reality'){if(reality.publicKey)params.set('pbk',reality.publicKey);if(reality.shortId)params.set('sid',reality.shortId);}
+      if(net==='ws'){const ws=st.wsSettings||{};params.set('path',ws.path||'/');const host=ws.headers&&(ws.headers.Host||ws.headers.host);if(host)params.set('host',host);}
+      if(net==='grpc')params.set('serviceName',(st.grpcSettings&&st.grpcSettings.serviceName)||'');
+      if(p==='vless'){
+        const sv=ob.settings.vnext&&ob.settings.vnext[0],u=sv&&sv.users&&sv.users[0];if(!sv||!u||!u.id||!sv.address||!sv.port)continue;
+        const host=String(sv.address);links.push('vless://'+u.id+'@'+(host.indexOf(':')>=0?'['+host+']':host)+':'+sv.port+'?'+params.toString()+'&encryption='+enc(u.encryption||'none')+(u.flow?'&flow='+enc(u.flow):'')+'#'+enc(remark));
+      }else if(p==='vmess'){
+        const sv=ob.settings.vnext&&ob.settings.vnext[0],u=sv&&sv.users&&sv.users[0];if(!sv||!u||!u.id||!sv.address||!sv.port)continue;
+        const ws=st.wsSettings||{},obj={v:'2',ps:remark,add:sv.address,port:String(sv.port),id:u.id,aid:String(u.alterId==null?0:u.alterId),scy:u.security||'auto',net:net,type:'none',host:(ws.headers&&(ws.headers.Host||ws.headers.host))||'',path:ws.path||'',tls:sec==='tls'?'tls':''};if(sni)obj.sni=sni;
+        links.push('vmess://'+btoa(unescape(encodeURIComponent(JSON.stringify(obj)))));
+      }else if(p==='trojan'){
+        const sv=ob.settings.servers&&ob.settings.servers[0];if(!sv||!sv.password||!sv.address||!sv.port)continue;
+        const host=String(sv.address);if(sec==='none')params.set('security','tls');
+        links.push('trojan://'+enc(sv.password)+'@'+(host.indexOf(':')>=0?'['+host+']':host)+':'+sv.port+'?'+params.toString()+'#'+enc(remark));
+      }else if(p==='shadowsocks'){
+        const sv=ob.settings.servers&&ob.settings.servers[0];if(!sv||!sv.address||!sv.port||!sv.method||!sv.password)continue;
+        const userinfo=btoa(unescape(encodeURIComponent(sv.method+':'+sv.password)));
+        links.push('ss://'+userinfo+'@'+(String(sv.address).indexOf(':')>=0?'['+sv.address+']':sv.address)+':'+sv.port+'#'+enc(remark));
+      }
+    }
+  }
+  return Array.from(new Set(links));
+}
         async function refreshSubscription(id){
           const sub=subscriptions.find(x=>x.id===id);if(!sub)return;
           sub.error=null;renderSubscriptionUi();
