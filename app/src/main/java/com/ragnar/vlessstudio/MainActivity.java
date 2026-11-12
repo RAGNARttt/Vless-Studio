@@ -207,6 +207,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String getSavedCheckResults() {
+            return getSharedPreferences("server_check_results", MODE_PRIVATE).getString("results", "{}");
+        }
+
+        @JavascriptInterface
         public void checkVlessBatchAsync(String itemsJson) {
             Intent intent = new Intent(MainActivity.this, ServerCheckService.class);
             intent.setAction(ServerCheckService.ACTION_CHECK);
