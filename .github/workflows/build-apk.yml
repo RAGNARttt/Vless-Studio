@@ -189,13 +189,21 @@ jobs:
           echo "Bundled Tailwind CSS: $(wc -c < app/src/main/assets/tailwind.css) bytes"
 
       - name: Configure persistent APK signing
-        if: ${{ secrets.VLESS_KEYSTORE_BASE64 != '' }}
+        env:
+          VLESS_KEYSTORE_BASE64: ${{ secrets.VLESS_KEYSTORE_BASE64 }}
+          VLESS_STORE_PASSWORD: ${{ secrets.VLESS_STORE_PASSWORD }}
+          VLESS_KEY_PASSWORD: ${{ secrets.VLESS_KEY_PASSWORD }}
+          VLESS_KEY_ALIAS: ${{ secrets.VLESS_KEY_ALIAS }}
         run: |
-          echo "${{ secrets.VLESS_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/vless-studio-release.jks"
+          if [ -z "$VLESS_KEYSTORE_BASE64" ]; then
+            echo "Signing secrets are not configured yet; building unsigned-debug-key APK."
+            exit 0
+          fi
+          echo "$VLESS_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/vless-studio-release.jks"
           echo "VLESS_KEYSTORE_PATH=$RUNNER_TEMP/vless-studio-release.jks" >> "$GITHUB_ENV"
-          echo "VLESS_STORE_PASSWORD=${{ secrets.VLESS_STORE_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "VLESS_KEY_PASSWORD=${{ secrets.VLESS_KEY_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "VLESS_KEY_ALIAS=${{ secrets.VLESS_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "VLESS_STORE_PASSWORD=$VLESS_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "VLESS_KEY_PASSWORD=$VLESS_KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "VLESS_KEY_ALIAS=$VLESS_KEY_ALIAS" >> "$GITHUB_ENV"
 
       - name: Build APK
         run: gradle assembleDebug
