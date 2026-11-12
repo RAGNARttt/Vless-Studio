@@ -1241,7 +1241,7 @@
             if(!data||data.app!=='VLESS Studio'||data.version!==1||!Array.isArray(data.subscriptions)||!Array.isArray(data.savedServers))throw new Error('Формат резервной копии не распознан');
             if(!confirm('Заменить текущие подписки и серверы данными из копии?'))return;
             subscriptions=data.subscriptions.filter(x=>x&&typeof x.id==='string'&&typeof x.url==='string');
-            savedServers=data.savedServers.filter(x=>x&&typeof x.id==='string'&&typeof x.link==='string'&&/^(vless|vmess|trojan|ss):\/\//i.test(x.link));
+            savedServers=data.savedServers.filter(x=>x&&typeof x.id==='string'&&typeof x.link==='string'&&/^(vless|vmess|trojan|ss|xrayjson):\/\//i.test(x.link));
             activeServerId=typeof data.activeServerId==='string'?data.activeServerId:'';
             localStorage.setItem('vlessStudio.activeServer',activeServerId);
             localStorage.setItem('vlessStudio.serverMode',data.serverMode||'auto');
@@ -1252,9 +1252,9 @@
           }catch(e){showToast(e.message||'Не удалось прочитать копию','error');}
         }
         function safeDecodeSub(text){let t=text.trim();if(!t.includes('://')){try{t=decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/'))));}catch(e){try{t=atob(t);}catch(_){}}}return t;}
-        function configRemark(link){try{return decodeURIComponent((link.split('#')[1]||'').replace(/\+/g,' '))||new URL(link).hostname;}catch(e){return 'Сервер';}}
+        function configRemark(link){try{if(link.startsWith('xrayjson://')){let b=link.slice(11).replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';const p=JSON.parse(decodeURIComponent(escape(atob(b))));return p.remarks||p.name||(p.outbounds||[]).find(o=>o&&['vless','vmess','trojan','shadowsocks'].includes(String(o.protocol||'').toLowerCase()))?.tag||'Xray профиль';}return decodeURIComponent((link.split('#')[1]||'').replace(/\+/g,' '))||new URL(link).hostname;}catch(e){return 'Xray профиль';}}
         function addServerLink(link,subscriptionId='manual'){
-          const clean=link.trim();if(!/^(vless|vmess|trojan|ss):\/\//i.test(clean))return false;
+          const clean=link.trim();if(!/^(vless|vmess|trojan|ss|xrayjson):\/\//i.test(clean))return false;
           if(savedServers.some(x=>x.link===clean))return false;
           savedServers.push({id:'srv_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:configRemark(clean),link:clean,subscriptionId,protocol:clean.startsWith('xrayjson://')?'JSON':clean.split(':')[0].toUpperCase()});
           return true;
