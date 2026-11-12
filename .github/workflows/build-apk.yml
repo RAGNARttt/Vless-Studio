@@ -188,6 +188,15 @@ jobs:
           test -s app/src/main/assets/tailwind.css
           echo "Bundled Tailwind CSS: $(wc -c < app/src/main/assets/tailwind.css) bytes"
 
+      - name: Configure persistent APK signing
+        if: ${{ secrets.VLESS_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.VLESS_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/vless-studio-release.jks"
+          echo "VLESS_KEYSTORE_PATH=$RUNNER_TEMP/vless-studio-release.jks" >> "$GITHUB_ENV"
+          echo "VLESS_STORE_PASSWORD=${{ secrets.VLESS_STORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "VLESS_KEY_PASSWORD=${{ secrets.VLESS_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "VLESS_KEY_ALIAS=${{ secrets.VLESS_KEY_ALIAS }}" >> "$GITHUB_ENV"
+
       - name: Build APK
         run: gradle assembleDebug
 
