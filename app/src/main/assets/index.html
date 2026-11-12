@@ -1277,7 +1277,10 @@
           persistSubscriptions();renderSubscriptionUi();field.value='';showToast('Конфигурация добавлена');
         }
         function xrayJsonToShareLinks(text){
-          const cfg=JSON.parse(text),outbounds=Array.isArray(cfg.outbounds)?cfg.outbounds:[],links=[];
+          const parsed=JSON.parse(text);
+          const configs=Array.isArray(parsed)?parsed:[parsed];
+          const outbounds=configs.flatMap(cfg=>Array.isArray(cfg?.outbounds)?cfg.outbounds:[]);
+          const links=[];
           const enc=s=>encodeURIComponent(String(s??''));
           for(const ob of outbounds){
             if(!ob||!ob.protocol||!ob.settings)continue;
