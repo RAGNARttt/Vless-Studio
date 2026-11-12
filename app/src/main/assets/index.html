@@ -1368,7 +1368,7 @@
         const pendingVlessChecks=new Set();
         let serverSortMode=localStorage.getItem('vlessStudio.serverSort')||'best';
         let serverMode=localStorage.getItem('vlessStudio.serverMode')||'auto';
-        function setServerMode(mode){serverMode=mode;localStorage.setItem('vlessStudio.serverMode',mode);if(mode==='fast')sortServers('latency');else if(mode==='auto')sortServers('best');else if(mode==='reliable')sortServers('status');renderSubscriptionUi();}
+        function setServerMode(mode){serverMode=mode;localStorage.setItem('vlessStudio.serverMode',mode);if(mode==='fast')sortServers('latency');else if(mode==='auto'){sortServers('best');applyBestServer(false,true);}else if(mode==='reliable')sortServers('status');renderSubscriptionUi();}
         function toggleWhitelist(id){const srv=savedServers.find(x=>x.id===id);if(!srv)return;srv.whitelisted=!srv.whitelisted;persistSubscriptions();renderSubscriptionUi();}
         function sortServers(mode){
           serverSortMode=mode||'best';localStorage.setItem('vlessStudio.serverSort',serverSortMode);
