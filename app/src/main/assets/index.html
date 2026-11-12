@@ -235,7 +235,7 @@
           <div class="flex gap-2 mb-3"><input id="subscription-url" class="sub-input flex-1" placeholder="https://example.com/subscription или ss:// / vless://"><button type="button" onclick="pasteSubscriptionClipboard()" class="glass-panel rounded-xl px-4 text-brand-400" title="Вставить из буфера"><i class="fa-regular fa-paste"></i></button></div>
           <div class="grid grid-cols-2 gap-2"><button onclick="addSubscription()" class="glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-plus mr-2"></i>Добавить</button><button onclick="importSingleConfig()" class="glass-panel rounded-xl py-3 font-semibold"><i class="fa-solid fa-link mr-2"></i>Импорт ссылки</button></div>
         </div>
-        <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Мои подписки</h3><button onclick="refreshAllSubscriptions()" class="text-brand-400 text-sm"><i class="fa-solid fa-rotate mr-1"></i>Обновить все</button></div><div id="subscription-list" class="space-y-3"><p class="text-sm text-slate-400">Подписок пока нет.</p></div></div>
+        <div class="glass-panel rounded-2xl p-5"><div class="flex justify-between items-center mb-3"><h3 class="font-bold text-white">Мои подписки</h3><button onclick="refreshAllSubscriptions()" class="text-brand-400 text-sm"><i class="fa-solid fa-rotate mr-1"></i>Обновить все</button></div><label class="flex items-start gap-3 text-sm text-slate-300 mb-3"><input id="subscription-hwid-toggle" type="checkbox" class="mt-1 accent-indigo-500" checked onchange="saveSubscriptionHwidSetting(this.checked)"><span>Передавать HWID и данные устройства при обновлении подписок <span class="block text-xs text-slate-500 mt-1">Нужно некоторым провайдерам для проверки устройства. Можно отключить в любой момент.</span></span></label><div id="subscription-list" class="space-y-3"><p class="text-sm text-slate-400">Подписок пока нет.</p></div></div>
         <div class="glass-panel rounded-2xl p-5"><div class="flex flex-wrap justify-between items-center gap-2 mb-3"><h3 class="font-bold text-white">Серверы</h3><div class="flex items-center gap-3"><select id="server-sort" onchange="sortServers(this.value)" class="glass-input rounded-lg px-2 py-2 text-xs"><option value="best">Сначала лучшие</option><option value="latency">По пингу</option><option value="status">По статусу</option></select><button onclick="checkAllServers()" class="text-emerald-400 text-sm"><i class="fa-solid fa-heart-pulse mr-1"></i>Проверить VLESS все</button></div></div><div id="server-mode-picker" class="grid grid-cols-2 gap-2 mb-3">
 <button data-mode="auto" onclick="setServerMode('auto')" class="server-mode-btn rounded-xl p-3 text-left border border-slate-700"><b>01 Автоматически</b><div class="text-xs text-slate-500">Лучший сервер</div></button>
 <button data-mode="fast" onclick="setServerMode('fast')" class="server-mode-btn rounded-xl p-3 text-left border border-slate-700"><b>02 Быстро</b><div class="text-xs text-slate-500">Минимальный пинг</div></button>
@@ -1282,7 +1282,7 @@
           try{
             let rawBody;
             if(window.AndroidVpnBridge && typeof AndroidVpnBridge.fetchSubscription==='function'){
-              const nativeResult=JSON.parse(AndroidVpnBridge.fetchSubscription(sub.url));
+              const sendHwid=document.getElementById('subscription-hwid-toggle')?.checked??true;const nativeResult=JSON.parse(AndroidVpnBridge.fetchSubscription(sub.url,sendHwid));
               if(!nativeResult.success)throw new Error(nativeResult.error||'Не удалось загрузить подписку');
               rawBody=nativeResult.body;
             }else{
@@ -1411,7 +1411,9 @@
           showToast('Проверяю прокси через отдельный процесс Xray: '+batch.length+' серверов…');
           AndroidVpnBridge.checkVlessBatchAsync(JSON.stringify(batch));
         }
+        function saveSubscriptionHwidSetting(enabled){localStorage.setItem('subscriptionSendHwid',enabled?'1':'0');}
         function renderSubscriptionUi(){
+          const hwidToggle=document.getElementById('subscription-hwid-toggle');if(hwidToggle){const saved=localStorage.getItem('subscriptionSendHwid');hwidToggle.checked=saved===null?true:saved==='1';}
           const subEl=document.getElementById('subscription-list'),srvEl=document.getElementById('subscription-servers'),homeEl=document.getElementById('home-server-list');
           if(!subEl)return;
           subEl.innerHTML=subscriptions.length?subscriptions.map(x=>'<div class="server-row"><div class="min-w-0 flex-1"><div class="font-semibold text-white truncate">'+escapeHtml(x.name)+'</div><div class="text-xs text-slate-400 truncate">'+escapeHtml(x.url)+'</div><div class="text-xs '+(x.error?'text-red-400':'text-slate-500')+' mt-1">'+(x.error?escapeHtml(x.error):(x.updatedAt?'Обновлено: '+new Date(x.updatedAt).toLocaleString():'Ожидает загрузки'))+'</div></div><button onclick="refreshSubscription(\''+x.id+'\')" class="text-brand-400 p-2" title="Обновить"><i class="fa-solid fa-rotate"></i></button><button onclick="removeSubscription(\''+x.id+'\')" class="text-red-400 p-2" title="Удалить"><i class="fa-solid fa-trash"></i></button></div>').join(''):'<p class="text-sm text-slate-400">Подписок пока нет.</p>';
