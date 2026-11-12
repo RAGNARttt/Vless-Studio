@@ -48,15 +48,33 @@ public class ServerCheckService extends Service {
                         String id = item.optString("id", "");
                         String link = item.optString("link", "");
                         try {
-                            JSONObject request = new JSONObject()
-                                    .put("apiVersion", 3)
-                                    .put("method", "convertShareLinksToXrayJson")
-                                    .put("payload", new JSONObject().put("text", link));
-                            JSONObject converted = new JSONObject(LibXray.invoke(request.toString()));
-                            JSONObject data = converted.optJSONObject("data");
-                            JSONArray outbounds = data == null ? null : data.optJSONArray("outbounds");
-                            if (!converted.optBoolean("success", false) || outbounds == null || outbounds.length() == 0)
-                                throw new IllegalArgumentException(converted.optString("error", "Не удалось разобрать ссылку"));
+                            JSONArray outbounds;
+                            if (link.startsWith("xrayjson://")) {
+                                String encoded = link.substring("xrayjson://".length()).replace('-', '+').replace('_', '/');
+                                while (encoded.length() % 4 != 0) encoded += "=";
+                                byte[] decoded = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT);
+                                JSONObject profile = new JSONObject(new String(decoded, java.nio.charset.StandardCharsets.UTF_8));
+                                JSONArray source = profile.optJSONArray("outbounds");
+                                if (source == null) throw new IllegalArgumentException("В JSON нет массива outbounds");
+                                outbounds = new JSONArray();
+                                for (int k = 0; k < source.length(); k++) {
+                                    JSONObject outbound = source.optJSONObject(k);
+                                    if (outbound == null) continue;
+                                    String protocol = outbound.optString("protocol", "").toLowerCase(java.util.Locale.ROOT);
+                                    if (protocol.equals("vless") || protocol.equals("vmess") || protocol.equals("trojan") || protocol.equals("shadowsocks")) outbounds.put(outbound);
+                                }
+                                if (outbounds.length() == 0) throw new IllegalArgumentException("В JSON нет прокси-outbounds");
+                            } else {
+                                JSONObject request = new JSONObject()
+                                        .put("apiVersion", 3)
+                                        .put("method", "convertShareLinksToXrayJson")
+                                        .put("payload", new JSONObject().put("text", link));
+                                JSONObject converted = new JSONObject(LibXray.invoke(request.toString()));
+                                JSONObject data = converted.optJSONObject("data");
+                                outbounds = data == null ? null : data.optJSONArray("outbounds");
+                                if (!converted.optBoolean("success", false) || outbounds == null || outbounds.length() == 0)
+                                    throw new IllegalArgumentException(converted.optString("error", "Не удалось разобрать ссылку"));
+                            }
                             configs.put(new JSONObject().put("xrayJson",
                                     new JSONObject().put("outbounds", outbounds).toString()));
                             ids.add(id);
