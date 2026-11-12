@@ -195,15 +195,20 @@ jobs:
           VLESS_KEY_PASSWORD: ${{ secrets.VLESS_KEY_PASSWORD }}
           VLESS_KEY_ALIAS: ${{ secrets.VLESS_KEY_ALIAS }}
         run: |
-          if [ -z "$VLESS_KEYSTORE_BASE64" ]; then
-            echo "Signing secrets are not configured yet; building unsigned-debug-key APK."
-            exit 0
-          fi
-          echo "$VLESS_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/vless-studio-release.jks"
-          echo "VLESS_KEYSTORE_PATH=$RUNNER_TEMP/vless-studio-release.jks" >> "$GITHUB_ENV"
+          set -euo pipefail
+          : "${VLESS_KEYSTORE_BASE64:?Missing VLESS_KEYSTORE_BASE64 repository secret}"
+          : "${VLESS_STORE_PASSWORD:?Missing VLESS_STORE_PASSWORD repository secret}"
+          : "${VLESS_KEY_PASSWORD:?Missing VLESS_KEY_PASSWORD repository secret}"
+          : "${VLESS_KEY_ALIAS:?Missing VLESS_KEY_ALIAS repository secret}"
+          KEYSTORE="$RUNNER_TEMP/vless-studio-release.jks"
+          printf '%s' "$VLESS_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          keytool -list -keystore "$KEYSTORE" -storepass "$VLESS_STORE_PASSWORD" -alias "$VLESS_KEY_ALIAS" >/dev/null
+          echo "VLESS_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
           echo "VLESS_STORE_PASSWORD=$VLESS_STORE_PASSWORD" >> "$GITHUB_ENV"
           echo "VLESS_KEY_PASSWORD=$VLESS_KEY_PASSWORD" >> "$GITHUB_ENV"
           echo "VLESS_KEY_ALIAS=$VLESS_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "Persistent signing keystore validated successfully."
 
       - name: Build APK
         run: gradle assembleDebug
