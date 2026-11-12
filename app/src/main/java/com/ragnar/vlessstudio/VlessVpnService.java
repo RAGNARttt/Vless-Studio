@@ -19,6 +19,8 @@ public class VlessVpnService extends VpnService implements DialerController {
     public static final String ACTION_START = "com.ragnar.vlessstudio.START_VPN";
     public static final String ACTION_STOP = "com.ragnar.vlessstudio.STOP_VPN";
     public static final String ACTION_STATE = "com.ragnar.vlessstudio.VPN_STATE";
+    public static final String ACTION_SWITCH = "com.ragnar.vlessstudio.SWITCH_VPN";
+    public static final String ACTION_HEALTH = "com.ragnar.vlessstudio.VPN_HEALTH";
     public static final String EXTRA_SHARE_LINK = "share_link";
     private static final String DNS_SERVER = "1.1.1.1";
     private static final StringBuilder diagnosticLog = new StringBuilder("VLESS Studio VPN diagnostics\\n");
@@ -69,6 +71,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             int code = connection.getResponseCode();
             long elapsed = android.os.SystemClock.elapsedRealtime() - startedAt;
             diag("Проверка интернета через VPN: HTTP " + code + ", " + elapsed + " мс");
+            publishHealth(code >= 200 && code < 400, elapsed);
             java.io.InputStream stream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
             if (stream != null) {
                 byte[] buffer = new byte[256];
@@ -79,9 +82,35 @@ public class VlessVpnService extends VpnService implements DialerController {
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             diag("Проверка интернета через VPN: ОШИБКА за " + elapsed + " мс: "
                     + e.getClass().getSimpleName() + ": " + message);
+            publishHealth(false, elapsed);
         } finally {
             if (connection != null) connection.disconnect();
             internetProbeRunning.set(false);
+        }
+    }
+
+    private void publishHealth(boolean ok, long elapsed) {
+        Intent health = new Intent(ACTION_HEALTH);
+        health.setPackage(getPackageName());
+        health.putExtra("ok", ok);
+        health.putExtra("elapsed", elapsed);
+        sendBroadcast(health);
+    }
+
+    private void switchVpn(String link, int startId) {
+        try {
+            diag("Автопереключение: остановка текущего Xray");
+            try { invoke("stopXray", new JSONObject()); } catch (Exception e) { Log.w(TAG, "Xray stop before switch", e); }
+            connected = false;
+            cleanupTunnel();
+            starting = true;
+            startVpn(link, startId);
+        } catch (Exception e) {
+            starting = false;
+            connected = false;
+            diag("ОШИБКА переключения: " + e.getMessage());
+            publishState(false, "Не удалось переключиться на резервный сервер");
+            stopForeground(true);
         }
     }
 
@@ -96,6 +125,14 @@ public class VlessVpnService extends VpnService implements DialerController {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) {
             stopSelf(startId);
+            return START_NOT_STICKY;
+        }
+        if (ACTION_SWITCH.equals(intent.getAction())) {
+            String link = intent.getStringExtra(EXTRA_SHARE_LINK);
+            if (link == null || link.trim().isEmpty()) { publishState(connected, "Не задан резервный сервер"); return START_NOT_STICKY; }
+            starting = true;
+            stopInternetDiagnostics();
+            new Thread(() -> switchVpn(link, startId), "vless-switch").start();
             return START_NOT_STICKY;
         }
         if (ACTION_STOP.equals(intent.getAction())) {
