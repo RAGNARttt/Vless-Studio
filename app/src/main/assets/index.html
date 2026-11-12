@@ -1290,7 +1290,7 @@
         }
         function refreshAllSubscriptions(){subscriptions.forEach(x=>refreshSubscription(x.id));}
         function removeSubscription(id){subscriptions=subscriptions.filter(x=>x.id!==id);savedServers=savedServers.filter(x=>x.subscriptionId!==id);persistSubscriptions();renderSubscriptionUi();}
-        function removeServer(id){savedServers=savedServers.filter(x=>x.id!==id);if(activeServerId===id){activeServerId='';localStorage.removeItem('vlessStudio.activeServer');}persistSubscriptions();renderSubscriptionUi();}
+        function removeServer(id){pendingVlessChecks.delete(id);savedServers=savedServers.filter(x=>x.id!==id);if(activeServerId===id){activeServerId='';localStorage.removeItem('vlessStudio.activeServer');}if(vlessCheckActive&&pendingVlessChecks.size===0)finishVlessCheck(false);persistSubscriptions();renderSubscriptionUi();}
         function selectServer(id){
           const srv=savedServers.find(x=>x.id===id);if(!srv)return;activeServerId=id;localStorage.setItem('vlessStudio.activeServer',id);
           document.getElementById('home-active-server').textContent=srv.name;document.getElementById('import-url').value=srv.link;showToast('Выбран сервер: '+srv.name);
@@ -1345,29 +1345,42 @@
           });
           persistSubscriptions();renderSubscriptionUi();
         }
-        function onVlessCheckResult(id,ok,latencyMs,error){
-          const srv=savedServers.find(x=>x.id===id);if(!srv)return;
-          srv.checkStatus=ok?'online':'offline';srv.latencyMs=ok?Number(latencyMs):-1;
-          srv.checkMessage=ok?'Прокси отвечает за '+srv.latencyMs+' мс':(error||'VLESS-проверка не пройдена');
-          srv.checkTime=new Date().toISOString();
-          pendingVlessChecks.delete(id);persistSubscriptions();renderSubscriptionUi();
-          if(pendingVlessChecks.size===0){
-            sortServers(serverSortMode);
+        let vlessCheckActive=false;
+        function finishVlessCheck(showSummary){
+          if(!vlessCheckActive)return;
+          vlessCheckActive=false;
+          pendingVlessChecks.clear();
+          savedServers.forEach(srv=>{if(srv.checkStatus==='checking'){srv.checkStatus='unknown';srv.latencyMs=-1;srv.checkMessage='Проверка не вернула результат';}});
+          persistSubscriptions();renderSubscriptionUi();sortServers(serverSortMode);
+          if(showSummary){
             const online=savedServers.filter(x=>x.checkStatus==='online').length;
             showToast('Проверка завершена: работает '+online+' из '+savedServers.length);
           }
         }
+        function onVlessCheckFinished(){if(vlessCheckActive&&pendingVlessChecks.size)finishVlessCheck(true);}
+        function onVlessCheckResult(id,ok,latencyMs,error){
+          pendingVlessChecks.delete(id);
+          const srv=savedServers.find(x=>x.id===id);
+          if(srv){
+            srv.checkStatus=ok?'online':'offline';srv.latencyMs=ok?Number(latencyMs):-1;
+            srv.checkMessage=ok?'Прокси отвечает за '+srv.latencyMs+' мс':(error||'VLESS-проверка не пройдена');
+            srv.checkTime=new Date().toISOString();
+            persistSubscriptions();renderSubscriptionUi();
+          }
+          if(pendingVlessChecks.size===0)finishVlessCheck(true);
+        }
         function checkAllServers(){
           if(!savedServers.length){showToast('Сначала добавь серверы','error');return;}
-          if(pendingVlessChecks.size){showToast('Проверка уже выполняется');return;}
+          if(vlessCheckActive||pendingVlessChecks.size){showToast('Проверка уже выполняется');return;}
           const batch=[];
+          vlessCheckActive=true;
           for(const srv of savedServers){
             if(!srv.link||! /^(vless|vmess|trojan|ss):\/\//i.test(srv.link)){srv.checkStatus='unknown';srv.checkMessage='Неподдерживаемый протокол';continue;}
             srv.checkStatus='checking';srv.latencyMs=-1;pendingVlessChecks.add(srv.id);
             batch.push({id:srv.id,link:srv.link});
           }
           renderSubscriptionUi();
-          if(!batch.length){showToast('Нет VLESS-серверов для проверки','error');return;}
+          if(!batch.length){vlessCheckActive=false;pendingVlessChecks.clear();showToast('Нет поддерживаемых серверов для проверки','error');return;}
           if(!window.AndroidVpnBridge||typeof AndroidVpnBridge.checkVlessBatchAsync!=='function'){
             pendingVlessChecks.clear();showToast('Нужна новая версия APK для проверки VLESS','error');return;
           }
