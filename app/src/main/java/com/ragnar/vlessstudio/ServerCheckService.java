@@ -68,7 +68,7 @@ public class ServerCheckService extends Service {
                     try {
                         JSONObject payload = new JSONObject()
                                 .put("configs", configs)
-                                .put("timeout", 10)
+                                .put("timeout", 6)
                                 .put("url", "https://cp.cloudflare.com/");
                         JSONObject request = new JSONObject().put("apiVersion", 3)
                                 .put("method", "pingBatch").put("payload", payload);
