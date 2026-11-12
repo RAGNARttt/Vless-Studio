@@ -1412,7 +1412,7 @@
           const batch=[];
           vlessCheckActive=true;
           for(const srv of savedServers){
-            if(!srv.link||! /^(vless|vmess|trojan|ss):\/\//i.test(srv.link)){srv.checkStatus='unknown';srv.checkMessage='Неподдерживаемый протокол';continue;}
+            if(!srv.link||! /^(vless|vmess|trojan|ss|xrayjson):\/\//i.test(srv.link)){srv.checkStatus='unknown';srv.checkMessage='Неподдерживаемый протокол';continue;}
             srv.checkStatus='checking';srv.latencyMs=-1;pendingVlessChecks.add(srv.id);
             batch.push({id:srv.id,link:srv.link});
           }
