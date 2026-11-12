@@ -203,8 +203,7 @@ public class MainActivity extends Activity {
             Intent intent = new Intent(MainActivity.this, ServerCheckService.class);
             intent.setAction(ServerCheckService.ACTION_CHECK);
             intent.putExtra(ServerCheckService.EXTRA_ITEMS, itemsJson == null ? "[]" : itemsJson);
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
-            else startService(intent);
+            startService(intent);
         }
 
         @JavascriptInterface
