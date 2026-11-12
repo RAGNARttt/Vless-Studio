@@ -227,6 +227,7 @@
     </section>
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
       <div id="tab-subscriptions" class="tab-content hidden space-y-5">
+        <div class="glass-panel rounded-2xl p-5"><h2 class="text-lg font-bold text-white mb-2">Резервная копия</h2><p class="text-xs text-slate-400 mb-3">Сохрани подписки, серверы, избранное и настройки перед переустановкой приложения.</p><button onclick="exportBackup()" class="glass-panel rounded-xl py-3 px-3 text-brand-300 font-semibold w-full mb-2"><i class="fa-solid fa-copy mr-1"></i>Скопировать резервную копию</button><textarea id="backup-input" class="sub-input w-full" rows="4" placeholder="Здесь появится копия. Для восстановления вставь сюда ранее сохранённый текст JSON."></textarea><button onclick="importBackup()" class="glow-button bg-brand-600 text-white rounded-xl py-3 font-semibold w-full mt-2">Восстановить данные из копии</button></div>
         <div class="glass-panel rounded-2xl p-5"><h2 class="text-xl font-bold text-white mb-2"><i class="fa-solid fa-layer-group text-brand-400 mr-2"></i>Подписки</h2><p class="text-sm text-slate-400 mb-4">Добавляй URL подписки. Ссылки и серверы сохраняются на устройстве.</p>
           <input id="subscription-name" class="sub-input mb-3" placeholder="Название подписки (например, Мой VPN)">
           <div class="flex gap-2 mb-3"><input id="subscription-url" class="sub-input flex-1" placeholder="https://example.com/subscription или ss:// / vless://"><button type="button" onclick="pasteSubscriptionClipboard()" class="glass-panel rounded-xl px-4 text-brand-400" title="Вставить из буфера"><i class="fa-regular fa-paste"></i></button></div>
@@ -1218,6 +1219,29 @@
         let savedServers=JSON.parse(localStorage.getItem(SERVERS_KEY)||'[]');
         let activeServerId=localStorage.getItem('vlessStudio.activeServer')||'';
         function persistSubscriptions(){localStorage.setItem(SUBS_KEY,JSON.stringify(subscriptions));localStorage.setItem(SERVERS_KEY,JSON.stringify(savedServers));}
+        function exportBackup(){
+          const backup={app:"VLESS Studio",version:1,createdAt:new Date().toISOString(),subscriptions,savedServers,activeServerId,serverMode:localStorage.getItem('vlessStudio.serverMode')||'auto',serverSort:localStorage.getItem('vlessStudio.serverSort')||'best'};
+          const field=document.getElementById('backup-input');field.value=JSON.stringify(backup);field.focus();field.select();
+          let copied=false;try{copied=document.execCommand('copy');}catch(e){}
+          showToast(copied?'Резервная копия скопирована. Сохрани текст в заметках.':'Копия готова в поле ниже — скопируй её вручную.',copied?'success':'error');
+        }
+        function importBackup(){
+          const field=document.getElementById('backup-input');
+          try{
+            const data=JSON.parse(field.value.trim());
+            if(!data||data.app!=='VLESS Studio'||data.version!==1||!Array.isArray(data.subscriptions)||!Array.isArray(data.savedServers))throw new Error('Формат резервной копии не распознан');
+            if(!confirm('Заменить текущие подписки и серверы данными из копии?'))return;
+            subscriptions=data.subscriptions.filter(x=>x&&typeof x.id==='string'&&typeof x.url==='string');
+            savedServers=data.savedServers.filter(x=>x&&typeof x.id==='string'&&typeof x.link==='string'&&/^(vless|vmess|trojan|ss):\/\//i.test(x.link));
+            activeServerId=typeof data.activeServerId==='string'?data.activeServerId:'';
+            localStorage.setItem('vlessStudio.activeServer',activeServerId);
+            localStorage.setItem('vlessStudio.serverMode',data.serverMode||'auto');
+            localStorage.setItem('vlessStudio.serverSort',data.serverSort||'best');
+            serverMode=data.serverMode||'auto';serverSortMode=data.serverSort||'best';
+            pendingVlessChecks.clear();persistSubscriptions();renderSubscriptionUi();
+            showToast('Восстановлено серверов: '+savedServers.length+'; подписок: '+subscriptions.length);
+          }catch(e){showToast(e.message||'Не удалось прочитать копию','error');}
+        }
         function safeDecodeSub(text){let t=text.trim();if(!t.includes('://')){try{t=decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/'))));}catch(e){try{t=atob(t);}catch(_){}}}return t;}
         function configRemark(link){try{return decodeURIComponent((link.split('#')[1]||'').replace(/\+/g,' '))||new URL(link).hostname;}catch(e){return 'Сервер';}}
         function addServerLink(link,subscriptionId='manual'){
