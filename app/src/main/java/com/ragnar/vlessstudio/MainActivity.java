@@ -34,7 +34,11 @@ public class MainActivity extends Activity {
 
     private final BroadcastReceiver vpnStateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (VlessVpnService.ACTION_STATE.equals(intent.getAction())) {
+            if (VlessVpnService.ACTION_HEALTH.equals(intent.getAction())) {
+                boolean ok = intent.getBooleanExtra("ok", false);
+                long elapsed = intent.getLongExtra("elapsed", -1);
+                if (webView != null) webView.evaluateJavascript("onVpnHealthResult(" + ok + "," + elapsed + ")", null);
+            } else if (VlessVpnService.ACTION_STATE.equals(intent.getAction())) {
                 boolean connected = intent.getBooleanExtra("connected", false);
                 String message = intent.getStringExtra("message");
                 updateVpnUi(connected, message == null ? "" : message);
@@ -252,6 +256,17 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void switchVpn(String shareLink) {
+            runOnUiThread(() -> {
+                Intent serviceIntent = new Intent(MainActivity.this, VlessVpnService.class);
+                serviceIntent.setAction(VlessVpnService.ACTION_SWITCH);
+                serviceIntent.putExtra(VlessVpnService.EXTRA_SHARE_LINK, shareLink == null ? "" : shareLink);
+                startService(serviceIntent);
+                updateVpnUi(false, "Подключаемся к резервному серверу…");
+            });
+        }
+
+        @JavascriptInterface
         public void stopVpn() {
             runOnUiThread(() -> {
                 Intent serviceIntent = new Intent(MainActivity.this, VlessVpnService.class);
@@ -411,6 +426,7 @@ public class MainActivity extends Activity {
         if (receiverRegistered) return;
         IntentFilter filter = new IntentFilter();
         filter.addAction(VlessVpnService.ACTION_STATE);
+        filter.addAction(VlessVpnService.ACTION_HEALTH);
         filter.addAction(ServerCheckService.ACTION_RESULT);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(vpnStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(vpnStateReceiver, filter);
