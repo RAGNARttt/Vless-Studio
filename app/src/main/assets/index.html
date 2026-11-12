@@ -1378,6 +1378,21 @@
           }
           if(pendingVlessChecks.size===0){finishVlessCheck(true);if(autoFailoverPending)performAutoFailover();}
         }
+        function restoreSavedCheckResults(){
+          try{
+            if(!window.AndroidVpnBridge||!AndroidVpnBridge.getSavedCheckResults)return;
+            const saved=JSON.parse(AndroidVpnBridge.getSavedCheckResults()||"{}");
+            let restored=0;
+            Object.keys(saved).forEach(id=>{
+              const srv=savedServers.find(x=>x.id===id),r=saved[id];
+              if(!srv||!r)return;
+              srv.checkStatus=r.ok?'online':'offline';srv.latencyMs=r.ok?Number(r.delay):-1;
+              srv.checkMessage=r.ok?'Прокси отвечает за '+srv.latencyMs+' мс':(r.error||'Проверка не пройдена');
+              srv.checkTime=r.time?new Date(r.time).toISOString():srv.checkTime;restored++;
+            });
+            if(restored){persistSubscriptions();renderSubscriptionUi();sortServers(serverSortMode);}
+          }catch(e){console.warn('Не удалось восстановить результаты проверки',e);}
+        }
         function checkAllServers(){
           if(!savedServers.length){showToast('Сначала добавь серверы','error');return;}
           if(vlessCheckActive||pendingVlessChecks.size){showToast('Проверка уже выполняется');return;}
@@ -1409,7 +1424,7 @@
           const sortControl=document.getElementById('server-sort');if(sortControl)sortControl.value=serverSortMode;document.querySelectorAll('.server-mode-btn').forEach(b=>{b.classList.toggle('border-brand-400',b.dataset.mode===serverMode);b.classList.toggle('bg-brand-500/15',b.dataset.mode===serverMode);});const hint=document.getElementById('whitelist-hint');if(hint)hint.textContent=serverMode==='whitelist'?'Показываются только серверы ★. Это отдельный список, не гарантия обхода блокировок.':'☆ рядом с сервером добавляет его в отдельный список.';const active=savedServers.find(x=>x.id===activeServerId);document.getElementById('home-active-server').textContent=active?active.name:'Сервер не выбран';
         }
         function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-        document.addEventListener('DOMContentLoaded',()=>{renderSubscriptionUi();switchTab('home');const toggle=document.getElementById('auto-failover-toggle');if(toggle){toggle.checked=autoFailoverEnabled;const info=document.getElementById('auto-failover-info');if(info)info.textContent=autoFailoverEnabled?'Включено · переключение после 3 неудачных проверок':'Отключено';}});
+        document.addEventListener('DOMContentLoaded',()=>{renderSubscriptionUi();restoreSavedCheckResults();switchTab('home');const toggle=document.getElementById('auto-failover-toggle');if(toggle){toggle.checked=autoFailoverEnabled;const info=document.getElementById('auto-failover-info');if(info)info.textContent=autoFailoverEnabled?'Включено · переключение после 3 неудачных проверок':'Отключено';}});
 
     </script>
 </body>
