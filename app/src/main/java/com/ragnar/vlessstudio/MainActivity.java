@@ -38,6 +38,10 @@ public class MainActivity extends Activity {
                 boolean connected = intent.getBooleanExtra("connected", false);
                 String message = intent.getStringExtra("message");
                 updateVpnUi(connected, message == null ? "" : message);
+            } else if (ServerCheckService.ACTION_FINISHED.equals(intent.getAction())) {
+                if (webView != null) {
+                    webView.evaluateJavascript("onVlessCheckFinished()", null);
+                }
             } else if (ServerCheckService.ACTION_RESULT.equals(intent.getAction())) {
                 String id = intent.getStringExtra("id");
                 boolean ok = intent.getBooleanExtra("ok", false);
