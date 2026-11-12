@@ -173,13 +173,19 @@ public class MainActivity extends Activity {
                 java.net.URL parsed = new java.net.URL(url);
                 connection = (java.net.HttpURLConnection) parsed.openConnection();
                 connection.setRequestMethod("GET");
-                connection.setConnectTimeout(12000);
-                connection.setReadTimeout(20000);
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(25000);
                 connection.setInstanceFollowRedirects(true);
-                connection.setRequestProperty("User-Agent", "VLESS-Studio/1.0");
-                connection.setRequestProperty("Accept", "text/plain, application/octet-stream, */*");
+                connection.setUseCaches(false);
+                connection.setRequestProperty("User-Agent",
+                        "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36");
+                connection.setRequestProperty("Accept", "text/plain, application/octet-stream, application/json, */*");
+                connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ru;q=0.8");
+                connection.setRequestProperty("Cache-Control", "no-cache");
+                connection.setRequestProperty("Pragma", "no-cache");
+                connection.setRequestProperty("Accept-Encoding", "identity");
                 int status = connection.getResponseCode();
-                java.io.InputStream input = status >= 200 && status < 400
+                java.io.InputStream input = status >= 200 && status < 300
                         ? connection.getInputStream() : connection.getErrorStream();
                 if (input == null) throw new java.io.IOException("HTTP " + status);
                 java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
@@ -191,10 +197,16 @@ public class MainActivity extends Activity {
                     output.write(buffer, 0, count);
                 }
                 input.close();
-                if (status < 200 || status >= 300) throw new java.io.IOException("HTTP " + status);
+                if (status < 200 || status >= 300) {
+                    String detail = new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8).trim();
+                    if (detail.length() > 180) detail = detail.substring(0, 180);
+                    throw new java.io.IOException("HTTP " + status + (detail.isEmpty() ? "" : ": " + detail));
+                }
                 org.json.JSONObject result = new org.json.JSONObject();
                 result.put("success", true);
                 result.put("body", new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+                result.put("finalUrl", connection.getURL().toString());
+                result.put("httpStatus", status);
                 return result.toString();
             } catch (Exception e) {
                 try {
