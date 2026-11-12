@@ -164,7 +164,7 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public String fetchSubscription(String url, boolean sendHwid) {
+        public String fetchSubscription(String url, boolean sendHwid, String hwidOverride) {
             java.net.HttpURLConnection connection = null;
             try {
                 if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) {
@@ -178,15 +178,17 @@ public class MainActivity extends Activity {
                 connection.setInstanceFollowRedirects(true);
                 connection.setUseCaches(false);
                 connection.setRequestProperty("User-Agent",
-                        "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36");
+                        "Happ/4.8.0(2009)");
                 connection.setRequestProperty("Accept", "text/plain, application/octet-stream, application/json, */*");
                 connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ru;q=0.8");
                 connection.setRequestProperty("Cache-Control", "no-cache");
                 connection.setRequestProperty("Pragma", "no-cache");
                 connection.setRequestProperty("Accept-Encoding", "identity");
                 if (sendHwid) {
-                    String hwid = android.provider.Settings.Secure.getString(
-                            getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+                    String hwid = hwidOverride == null || hwidOverride.trim().isEmpty()
+                            ? android.provider.Settings.Secure.getString(
+                                    getContentResolver(), android.provider.Settings.Secure.ANDROID_ID)
+                            : hwidOverride.trim();
                     if (hwid != null && !hwid.trim().isEmpty()) {
                         connection.setRequestProperty("x-hwid", hwid);
                     }
