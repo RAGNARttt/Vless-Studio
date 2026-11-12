@@ -212,56 +212,112 @@ public class VlessVpnService extends VpnService implements DialerController {
             LibXray.setDNS(this, DNS_SERVER + ":53");
             Log.i(TAG, "libXray dialer registered; remote DNS=" + DNS_SERVER + ":53");
 
-            JSONObject converted = invoke("convertShareLinksToXrayJson",
-                    new JSONObject().put("text", shareLink));
-            JSONObject conversionData = converted.optJSONObject("data");
-            if (conversionData == null) {
-                throw new IllegalStateException("Конвертер libXray вернул ответ без data: " + converted.toString());
+            JSONObject config;
+            if (shareLink != null && shareLink.startsWith("xrayjson://")) {
+                String encoded = shareLink.substring("xrayjson://".length())
+                        .replace('-', '+').replace('_', '/');
+                while (encoded.length() % 4 != 0) encoded += "=";
+                byte[] decoded = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT);
+                JSONObject profile = new JSONObject(new String(decoded, java.nio.charset.StandardCharsets.UTF_8));
+                JSONArray outbounds = profile.optJSONArray("outbounds");
+                if (outbounds == null || outbounds.length() == 0) {
+                    throw new IllegalStateException("В JSON-профиле отсутствует outbounds");
+                }
+                String proxyTag = null;
+                for (int i = 0; i < outbounds.length(); i++) {
+                    JSONObject ob = outbounds.optJSONObject(i);
+                    if (ob == null) continue;
+                    String protocol = ob.optString("protocol", "").toLowerCase(java.util.Locale.ROOT);
+                    if ("vless".equals(protocol) || "vmess".equals(protocol)
+                            || "trojan".equals(protocol) || "shadowsocks".equals(protocol)) {
+                        proxyTag = ob.optString("tag", "");
+                        if (proxyTag.isEmpty()) {
+                            proxyTag = "vlessstudio-proxy-" + i;
+                            ob.put("tag", proxyTag);
+                        }
+                        break;
+                    }
+                }
+                if (proxyTag == null) {
+                    throw new IllegalStateException("В JSON-профиле не найден поддерживаемый proxy outbound");
+                }
+                JSONObject tunSettings = new JSONObject()
+                        .put("name", "vlessstudio")
+                        .put("mtu", 1400);
+                JSONObject tunInbound = new JSONObject()
+                        .put("tag", "tun-in")
+                        .put("port", 0)
+                        .put("protocol", "tun")
+                        .put("settings", tunSettings);
+                JSONArray inbounds = new JSONArray().put(tunInbound);
+                profile.put("inbounds", inbounds);
+                profile.put("env", new JSONObject().put("xray.tun.fd", String.valueOf(vpnInterface.getFd())));
+                if (!profile.has("log")) profile.put("log", new JSONObject().put("loglevel", "warning"));
+                if (!profile.has("dns")) {
+                    profile.put("dns", new JSONObject().put("servers",
+                            new JSONArray().put(DNS_SERVER).put("8.8.8.8")));
+                }
+                JSONObject routing = profile.optJSONObject("routing");
+                if (routing == null) {
+                    routing = new JSONObject();
+                    profile.put("routing", routing);
+                }
+                JSONArray rules = routing.optJSONArray("rules");
+                if (rules == null) {
+                    rules = new JSONArray();
+                    routing.put("rules", rules);
+                }
+                rules.put(new JSONObject()
+                        .put("type", "field")
+                        .put("inboundTag", new JSONArray().put("tun-in"))
+                        .put("outboundTag", proxyTag));
+                config = profile;
+                diag("Полный JSON-профиль Xray; outboundCount=" + outbounds.length()
+                        + "; proxyTag=" + proxyTag + "; остальные DNS/routing/outbounds сохранены");
+            } else {
+                JSONObject converted = invoke("convertShareLinksToXrayJson",
+                        new JSONObject().put("text", shareLink));
+                JSONObject conversionData = converted.optJSONObject("data");
+                if (conversionData == null) {
+                    throw new IllegalStateException("Конвертер libXray вернул ответ без data: " + converted.toString());
+                }
+                JSONArray outbounds = conversionData.optJSONArray("outbounds");
+                if (outbounds == null || outbounds.length() == 0) {
+                    throw new IllegalStateException("В ссылке не найден рабочий outbound");
+                }
+                JSONObject proxy = outbounds.getJSONObject(0);
+                JSONObject streamSettings = proxy.optJSONObject("streamSettings");
+                diag("Outbound: protocol=" + proxy.optString("protocol")
+                        + ", network=" + (streamSettings == null ? "default" : streamSettings.optString("network"))
+                        + ", security=" + (streamSettings == null ? "default" : streamSettings.optString("security"))
+                        + ", outboundCount=" + outbounds.length());
+                String proxyTag = proxy.optString("tag", "");
+                if (proxyTag.isEmpty()) {
+                    proxyTag = "proxy";
+                    proxy.put("tag", proxyTag);
+                }
+                JSONObject tunSettings = new JSONObject()
+                        .put("name", "vlessstudio")
+                        .put("mtu", 1400);
+                JSONObject tunInbound = new JSONObject()
+                        .put("tag", "tun-in")
+                        .put("port", 0)
+                        .put("protocol", "tun")
+                        .put("settings", tunSettings);
+                JSONArray routingRules = new JSONArray()
+                        .put(new JSONObject()
+                                .put("type", "field")
+                                .put("inboundTag", new JSONArray().put("tun-in"))
+                                .put("outboundTag", proxyTag));
+                config = new JSONObject()
+                        .put("log", new JSONObject().put("loglevel", "debug"))
+                        .put("env", new JSONObject().put("xray.tun.fd", String.valueOf(vpnInterface.getFd())))
+                        .put("dns", new JSONObject().put("servers",
+                                new JSONArray().put(DNS_SERVER).put("8.8.8.8")))
+                        .put("inbounds", new JSONArray().put(tunInbound))
+                        .put("outbounds", outbounds)
+                        .put("routing", new JSONObject().put("rules", routingRules));
             }
-            JSONArray outbounds = conversionData.optJSONArray("outbounds");
-            if (outbounds == null || outbounds.length() == 0) {
-                throw new IllegalStateException("В ссылке не найден рабочий outbound");
-            }
-
-            JSONObject proxy = outbounds.getJSONObject(0);
-            JSONObject streamSettings = proxy.optJSONObject("streamSettings");
-            diag("Outbound: protocol=" + proxy.optString("protocol")
-                    + ", network=" + (streamSettings == null ? "default" : streamSettings.optString("network"))
-                    + ", security=" + (streamSettings == null ? "default" : streamSettings.optString("security"))
-                    + ", outboundCount=" + outbounds.length());
-            String proxyTag = proxy.optString("tag", "");
-            if (proxyTag.isEmpty()) {
-                proxyTag = "proxy";
-                proxy.put("tag", proxyTag);
-            }
-
-            JSONObject tunSettings = new JSONObject()
-                    .put("name", "vlessstudio")
-                    .put("mtu", 1400);
-            Log.i(TAG, "Xray TUN configured without netlink interface auto-detection; protected sockets use VpnService.protectFd");
-            JSONObject tunInbound = new JSONObject()
-                    .put("tag", "tun-in")
-                    .put("port", 0)
-                    .put("protocol", "tun")
-                    .put("settings", tunSettings);
-
-            // Happ's logs show DNS packets (1.1.1.1:53/UDP) going through
-            // the selected proxy outbound. Match that behaviour instead of
-            // intercepting DNS with a separate DNS outbound.
-            JSONArray routingRules = new JSONArray()
-                    .put(new JSONObject()
-                            .put("type", "field")
-                            .put("inboundTag", new JSONArray().put("tun-in"))
-                            .put("outboundTag", proxyTag));
-
-            JSONObject config = new JSONObject()
-                    .put("log", new JSONObject().put("loglevel", "debug"))
-                    .put("env", new JSONObject().put("xray.tun.fd", String.valueOf(vpnInterface.getFd())))
-                    .put("dns", new JSONObject().put("servers",
-                            new JSONArray().put(DNS_SERVER).put("8.8.8.8")))
-                    .put("inbounds", new JSONArray().put(tunInbound))
-                    .put("outbounds", outbounds)
-                    .put("routing", new JSONObject().put("rules", routingRules));
 
             Log.i(TAG, "Starting Xray with dual-stack TUN MTU 1400; Android manages routes and protected proxy sockets; fd=" + vpnInterface.getFd());
             JSONObject response = invoke("runXray",
