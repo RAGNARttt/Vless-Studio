@@ -218,6 +218,8 @@
           <p class="text-sm text-slate-400 mt-6">Текущее подключение</p>
           <p id="home-active-server" class="text-white font-semibold mt-1">Сервер не выбран</p>
           <p id="home-vpn-warning" class="text-xs text-amber-300 mt-4">Xray пока не запущен: реальный VPN-туннель ещё не установлен.</p>
+          <label class="flex items-center justify-center gap-2 text-sm text-slate-300 mt-3"><input id="auto-failover-toggle" type="checkbox" onchange="setAutoFailover(this.checked)" class="accent-emerald-500"> Автопереключение при отказе сервера</label>
+          <p id="auto-failover-info" class="text-xs text-slate-500 mt-1">Отключено</p>
           <button type="button" onclick="if(window.AndroidVpnBridge) AndroidVpnBridge.showDiagnostics(); else showToast('Диагностика доступна в APK', 'error')" class="glass-panel rounded-xl px-4 py-3 mt-3 text-sm text-slate-300 border border-slate-500/30"><i class="fa-solid fa-stethoscope mr-2"></i>Диагностика VPN</button>
           <button type="button" onclick="openSplitTunneling()" class="glass-panel rounded-xl px-4 py-3 mt-4 text-sm text-brand-400 border border-brand-500/30"><i class="fa-solid fa-mobile-screen-button mr-2"></i>Раздельное туннелирование</button>
           <p id="split-tunnel-info" class="text-xs text-slate-500 mt-2">По умолчанию через VPN идут все приложения</p>
@@ -727,6 +729,13 @@
         }
 
         let vpnUiConnected = false;
+        const AUTO_FAILOVER_KEY="vlessStudio.autoFailover";
+        let autoFailoverEnabled=localStorage.getItem(AUTO_FAILOVER_KEY)==="true";
+        let vpnHealthFailures=0;
+        let autoFailoverPending=false;
+        function setAutoFailover(enabled){autoFailoverEnabled=!!enabled;localStorage.setItem(AUTO_FAILOVER_KEY,String(autoFailoverEnabled));const info=document.getElementById("auto-failover-info");if(info)info.textContent=autoFailoverEnabled?"Включено · переключение после 3 неудачных проверок":"Отключено";showToast(autoFailoverEnabled?"Автопереключение включено":"Автопереключение отключено");}
+        function onVpnHealthResult(ok,elapsed){if(!autoFailoverEnabled||!vpnUiConnected||autoFailoverPending)return;if(ok){vpnHealthFailures=0;return;}vpnHealthFailures++;showToast("Нет ответа от VPN ("+vpnHealthFailures+"/3)");if(vpnHealthFailures>=3){autoFailoverPending=true;vpnHealthFailures=0;showToast("Сервер не отвечает. Ищу резервный…");checkAllServers();}}
+        function performAutoFailover(){if(!autoFailoverPending)return;autoFailoverPending=false;const candidates=savedServers.filter(x=>x.id!==activeServerId&&x.checkStatus==="online"&&x.link);candidates.sort((a,b)=>(a.latencyMs>=0?a.latencyMs:999999)-(b.latencyMs>=0?b.latencyMs:999999));const next=candidates[0];if(!next){showToast("Рабочий резервный сервер не найден","error");return;}activeServerId=next.id;localStorage.setItem("vlessStudio.activeServer",activeServerId);persistSubscriptions();renderSubscriptionUi();document.getElementById("home-active-server").textContent=next.name;if(window.AndroidVpnBridge&&AndroidVpnBridge.switchVpn){AndroidVpnBridge.switchVpn(next.link);showToast("Переключаюсь на "+next.name);}else showToast("Не удалось запустить автопереключение","error");}
         function toggleVpnConnection() {
             if (vpnUiConnected) requestVpnDisconnect();
             else requestVpnConnect();
@@ -1357,7 +1366,7 @@
             showToast('Проверка завершена: работает '+online+' из '+savedServers.length);
           }
         }
-        function onVlessCheckFinished(){if(vlessCheckActive&&pendingVlessChecks.size)finishVlessCheck(true);}
+        function onVlessCheckFinished(){if(vlessCheckActive&&pendingVlessChecks.size)finishVlessCheck(true);if(autoFailoverPending)performAutoFailover();}
         function onVlessCheckResult(id,ok,latencyMs,error){
           pendingVlessChecks.delete(id);
           const srv=savedServers.find(x=>x.id===id);
@@ -1400,7 +1409,7 @@
           const sortControl=document.getElementById('server-sort');if(sortControl)sortControl.value=serverSortMode;document.querySelectorAll('.server-mode-btn').forEach(b=>{b.classList.toggle('border-brand-400',b.dataset.mode===serverMode);b.classList.toggle('bg-brand-500/15',b.dataset.mode===serverMode);});const hint=document.getElementById('whitelist-hint');if(hint)hint.textContent=serverMode==='whitelist'?'Показываются только серверы ★. Это отдельный список, не гарантия обхода блокировок.':'☆ рядом с сервером добавляет его в отдельный список.';const active=savedServers.find(x=>x.id===activeServerId);document.getElementById('home-active-server').textContent=active?active.name:'Сервер не выбран';
         }
         function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-        document.addEventListener('DOMContentLoaded',()=>{renderSubscriptionUi();switchTab('home');});
+        document.addEventListener('DOMContentLoaded',()=>{renderSubscriptionUi();switchTab('home');const toggle=document.getElementById('auto-failover-toggle');if(toggle){toggle.checked=autoFailoverEnabled;const info=document.getElementById('auto-failover-info');if(info)info.textContent=autoFailoverEnabled?'Включено · переключение после 3 неудачных проверок':'Отключено';}});
 
     </script>
 </body>
