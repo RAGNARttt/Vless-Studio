@@ -1,4 +1,4 @@
-name: Build VLESS Studio APK
+name: Build VLESS Studio APK # persistent signing validation
 
 on:
   workflow_dispatch:
