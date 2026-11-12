@@ -15,6 +15,7 @@ import libXray.LibXray;
 public class ServerCheckService extends Service {
     public static final String ACTION_CHECK = "com.ragnar.vlessstudio.CHECK_SERVERS";
     public static final String ACTION_RESULT = "com.ragnar.vlessstudio.SERVER_CHECK_RESULT";
+    public static final String ACTION_FINISHED = "com.ragnar.vlessstudio.SERVER_CHECK_FINISHED";
     public static final String EXTRA_ITEMS = "items_json";
     private static final String TAG = "ServerCheckService";
     private final java.util.concurrent.ExecutorService executor =
@@ -80,6 +81,9 @@ public class ServerCheckService extends Service {
             } catch (Exception e) {
                 Log.e(TAG, "Server check failed", e);
             } finally {
+                Intent finished = new Intent(ACTION_FINISHED);
+                finished.setPackage(getPackageName());
+                sendBroadcast(finished);
                 stopSelf(startId);
             }
         });
