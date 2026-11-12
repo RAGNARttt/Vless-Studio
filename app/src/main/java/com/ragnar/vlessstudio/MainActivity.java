@@ -23,6 +23,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import libXray.LibXray;
+
 public class MainActivity extends Activity {
     private static final int VPN_REQUEST_CODE = 1001;
     private FrameLayout root;
@@ -183,6 +185,80 @@ public class MainActivity extends Activity {
             } finally {
                 if (connection != null) connection.disconnect();
             }
+        }
+
+        @JavascriptInterface
+        public void checkVlessBatchAsync(String itemsJson) {
+            new Thread(() -> {
+                try {
+                    org.json.JSONArray items = new org.json.JSONArray(itemsJson == null ? "[]" : itemsJson);
+                    for (int offset = 0; offset < items.length(); offset += 5) {
+                        org.json.JSONArray configs = new org.json.JSONArray();
+                        java.util.ArrayList<String> ids = new java.util.ArrayList<>();
+                        int end = Math.min(offset + 5, items.length());
+                        for (int i = offset; i < end; i++) {
+                            org.json.JSONObject item = items.getJSONObject(i);
+                            String id = item.optString("id", "");
+                            String link = item.optString("link", "");
+                            try {
+                                org.json.JSONObject request = new org.json.JSONObject()
+                                        .put("apiVersion", 3)
+                                        .put("method", "convertShareLinksToXrayJson")
+                                        .put("payload", new org.json.JSONObject().put("text", link));
+                                org.json.JSONObject converted = new org.json.JSONObject(LibXray.invoke(request.toString()));
+                                org.json.JSONObject data = converted.optJSONObject("data");
+                                org.json.JSONArray outbounds = data == null ? null : data.optJSONArray("outbounds");
+                                if (!converted.optBoolean("success", false) || outbounds == null || outbounds.length() == 0) {
+                                    throw new java.io.IOException(converted.optString("error", "Не удалось разобрать VLESS"));
+                                }
+                                org.json.JSONObject nodeConfig = new org.json.JSONObject().put("outbounds", outbounds);
+                                configs.put(new org.json.JSONObject().put("xrayJson", nodeConfig.toString()));
+                                ids.add(id);
+                            } catch (Exception parseError) {
+                                publishVlessCheck(id, false, -1, parseError.getMessage());
+                            }
+                        }
+                        if (configs.length() == 0) continue;
+                        try {
+                            org.json.JSONObject payload = new org.json.JSONObject()
+                                    .put("configs", configs)
+                                    .put("timeout", 8)
+                                    .put("url", "https://cp.cloudflare.com/");
+                            org.json.JSONObject request = new org.json.JSONObject()
+                                    .put("apiVersion", 3)
+                                    .put("method", "pingBatch")
+                                    .put("payload", payload);
+                            org.json.JSONObject response = new org.json.JSONObject(LibXray.invoke(request.toString()));
+                            org.json.JSONArray results = response.optJSONArray("data") == null
+                                    ? null : response.optJSONObject("data").optJSONArray("results");
+                            if (!response.optBoolean("success", false) || results == null) {
+                                throw new java.io.IOException(response.optString("error", "Ошибка проверки VLESS"));
+                            }
+                            for (int j = 0; j < ids.size(); j++) {
+                                org.json.JSONObject result = results.optJSONObject(j);
+                                boolean ok = result != null && result.optBoolean("success", false);
+                                long delay = result == null ? -1 : result.optLong("delay", -1);
+                                String error = result == null ? "Нет результата" : result.optString("error", "");
+                                publishVlessCheck(ids.get(j), ok, ok ? delay : -1, error);
+                            }
+                        } catch (Exception batchError) {
+                            for (String id : ids) publishVlessCheck(id, false, -1, batchError.getMessage());
+                        }
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("VLESSStudio", "VLESS batch check failed", e);
+                }
+            }, "vless-real-check").start();
+        }
+
+        private void publishVlessCheck(String id, boolean ok, long delay, String error) {
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    String safeId = org.json.JSONObject.quote(id == null ? "" : id);
+                    String safeError = org.json.JSONObject.quote(error == null ? "" : error);
+                    webView.evaluateJavascript("onVlessCheckResult(" + safeId + "," + ok + "," + delay + "," + safeError + ")", null);
+                }
+            });
         }
 
         @JavascriptInterface
