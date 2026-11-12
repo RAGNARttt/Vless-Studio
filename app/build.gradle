@@ -6,6 +6,26 @@ android {
     namespace 'com.ragnar.vlessstudio'
     compileSdk 35
 
+    signingConfigs {
+        release {
+            def ksPath = System.getenv("VLESS_KEYSTORE_PATH")
+            if (ksPath != null && !ksPath.isEmpty()) {
+                storeFile file(ksPath)
+                storePassword System.getenv("VLESS_STORE_PASSWORD")
+                keyAlias System.getenv("VLESS_KEY_ALIAS")
+                keyPassword System.getenv("VLESS_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (System.getenv("VLESS_KEYSTORE_PATH") != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
     defaultConfig {
         applicationId 'com.ragnar.vlessstudio'
         minSdk 23
