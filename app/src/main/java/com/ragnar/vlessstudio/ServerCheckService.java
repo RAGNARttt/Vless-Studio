@@ -1,6 +1,11 @@
 package com.ragnar.vlessstudio;
 
 import android.app.Service;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.SharedPreferences;
+import android.os.Build;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
@@ -18,6 +23,9 @@ public class ServerCheckService extends Service {
     public static final String ACTION_FINISHED = "com.ragnar.vlessstudio.SERVER_CHECK_FINISHED";
     public static final String EXTRA_ITEMS = "items_json";
     private static final String TAG = "ServerCheckService";
+    private static final String PREFS = "server_check_results";
+    private static final String CHANNEL = "server_check_channel";
+    private static final int NOTIFICATION_ID = 2405;
     private final java.util.concurrent.ExecutorService executor =
             java.util.concurrent.Executors.newSingleThreadExecutor();
 
@@ -26,6 +34,7 @@ public class ServerCheckService extends Service {
             stopSelf(startId);
             return START_NOT_STICKY;
         }
+        startCheckForeground();
         String raw = intent.getStringExtra(EXTRA_ITEMS);
         executor.execute(() -> {
             try {
@@ -84,13 +93,37 @@ public class ServerCheckService extends Service {
                 Intent finished = new Intent(ACTION_FINISHED);
                 finished.setPackage(getPackageName());
                 sendBroadcast(finished);
+                stopForeground(true);
                 stopSelf(startId);
             }
         });
         return START_NOT_STICKY;
     }
 
+    private void startCheckForeground() {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Проверка серверов", NotificationManager.IMPORTANCE_LOW));
+        }
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
+        builder.setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setContentTitle("VLESS Studio")
+                .setContentText("Проверяю серверы в фоне…")
+                .setOngoing(true)
+                .setOnlyAlertOnce(true);
+        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, builder.build(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        else startForeground(NOTIFICATION_ID, builder.build());
+    }
+
     private void publish(String id, boolean ok, long delay, String error) {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+            JSONObject all = new JSONObject(prefs.getString("results", "{}"));
+            JSONObject item = new JSONObject().put("ok", ok).put("delay", delay).put("error", error == null ? "" : error).put("time", System.currentTimeMillis());
+            all.put(id, item);
+            prefs.edit().putString("results", all.toString()).apply();
+        } catch (Exception ignored) {}
+
         Intent result = new Intent(ACTION_RESULT);
         result.setPackage(getPackageName());
         result.putExtra("id", id);
