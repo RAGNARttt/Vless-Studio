@@ -35,6 +35,62 @@ public class VlessVpnService extends VpnService implements DialerController {
     private volatile boolean connected;
     private final java.util.concurrent.atomic.AtomicLong protectCalls = new java.util.concurrent.atomic.AtomicLong();
     private final java.util.concurrent.atomic.AtomicLong protectSuccess = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.ScheduledExecutorService diagnosticsExecutor =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "vless-net-diagnostic");
+                t.setDaemon(true);
+                return t;
+            });
+    private volatile java.util.concurrent.ScheduledFuture<?> internetProbeTask;
+    private final java.util.concurrent.atomic.AtomicBoolean internetProbeRunning = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    // This request is made by the app itself through Android's VPN route.
+    // It does not alter TUN routes, DNS settings, MTU, or Xray configuration.
+    private void startInternetDiagnostics() {
+        if (internetProbeTask != null) internetProbeTask.cancel(false);
+        internetProbeTask = diagnosticsExecutor.scheduleWithFixedDelay(
+                this::probeInternetThroughVpn, 3, 45, java.util.concurrent.TimeUnit.SECONDS);
+        diag("Диагностика интернета включена: HTTPS-проверка через VPN каждые 45 секунд");
+    }
+
+    private void probeInternetThroughVpn() {
+        if (!connected || !internetProbeRunning.compareAndSet(false, true)) return;
+        long startedAt = android.os.SystemClock.elapsedRealtime();
+        java.net.HttpURLConnection connection = null;
+        try {
+            java.net.URL url = new java.net.URL("https://cp.cloudflare.com/");
+            connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(7000);
+            connection.setReadTimeout(7000);
+            connection.setInstanceFollowRedirects(false);
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Cache-Control", "no-cache");
+            int code = connection.getResponseCode();
+            long elapsed = android.os.SystemClock.elapsedRealtime() - startedAt;
+            diag("Проверка интернета через VPN: HTTP " + code + ", " + elapsed + " мс");
+            java.io.InputStream stream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            if (stream != null) {
+                byte[] buffer = new byte[256];
+                try { stream.read(buffer); } finally { stream.close(); }
+            }
+        } catch (Exception e) {
+            long elapsed = android.os.SystemClock.elapsedRealtime() - startedAt;
+            String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            diag("Проверка интернета через VPN: ОШИБКА за " + elapsed + " мс: "
+                    + e.getClass().getSimpleName() + ": " + message);
+        } finally {
+            if (connection != null) connection.disconnect();
+            internetProbeRunning.set(false);
+        }
+    }
+
+    private void stopInternetDiagnostics() {
+        if (internetProbeTask != null) {
+            internetProbeTask.cancel(true);
+            internetProbeTask = null;
+        }
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -187,6 +243,7 @@ public class VlessVpnService extends VpnService implements DialerController {
             diag("Xray запущен; protectFd=" + protectCalls.get() + ", успешно=" + protectSuccess.get());
             starting = false;
             publishState(true, "VPN запущен · проверяем передачу трафика");
+            startInternetDiagnostics();
             Log.i(TAG, "Xray TUN started; protectFd calls=" + protectCalls.get() + ", success=" + protectSuccess.get() + "; core startup does not prove internet reachability");
         } catch (Exception e) {
             diag("ОШИБКА запуска: " + Log.getStackTraceString(e));
@@ -223,6 +280,7 @@ public class VlessVpnService extends VpnService implements DialerController {
     }
 
     private void stopVpn() {
+        stopInternetDiagnostics();
         try {
             if (connected || starting) {
                 try {
@@ -242,6 +300,7 @@ public class VlessVpnService extends VpnService implements DialerController {
     }
 
     private void cleanupTunnel() {
+        stopInternetDiagnostics();
         diag("Очистка TUN; protectFd вызовов=" + protectCalls.get() + ", успешно=" + protectSuccess.get());
         try { LibXray.resetDNS(); } catch (Exception e) { Log.w(TAG, "DNS reset failed", e); }
         try {
