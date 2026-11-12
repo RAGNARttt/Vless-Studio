@@ -30,8 +30,7 @@
         <service
             android:name=".ServerCheckService"
             android:process=":servercheck"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:exported="false" />
 
         <service
             android:name=".VlessVpnService"
