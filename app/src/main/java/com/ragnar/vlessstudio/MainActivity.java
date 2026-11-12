@@ -190,7 +190,7 @@ public class MainActivity extends Activity {
                                     getContentResolver(), android.provider.Settings.Secure.ANDROID_ID)
                             : hwidOverride.trim();
                     if (hwid != null && !hwid.trim().isEmpty()) {
-                        connection.setRequestProperty("x-hwid", hwid);
+                        connection.setRequestProperty("X-HWID", hwid);
                     }
                     connection.setRequestProperty("x-device-os", "Android");
                     connection.setRequestProperty("x-ver-os", Build.VERSION.RELEASE);
@@ -220,6 +220,11 @@ public class MainActivity extends Activity {
                 result.put("body", new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
                 result.put("finalUrl", connection.getURL().toString());
                 result.put("httpStatus", status);
+                result.put("contentType", connection.getContentType() == null ? "" : connection.getContentType());
+                result.put("contentLength", output.size());
+                String preview = new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8).trim();
+                if (preview.length() > 240) preview = preview.substring(0, 240);
+                result.put("preview", preview);
                 return result.toString();
             } catch (Exception e) {
                 try {
