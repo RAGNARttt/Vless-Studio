@@ -164,7 +164,7 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public String fetchSubscription(String url) {
+        public String fetchSubscription(String url, boolean sendHwid) {
             java.net.HttpURLConnection connection = null;
             try {
                 if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) {
@@ -184,6 +184,17 @@ public class MainActivity extends Activity {
                 connection.setRequestProperty("Cache-Control", "no-cache");
                 connection.setRequestProperty("Pragma", "no-cache");
                 connection.setRequestProperty("Accept-Encoding", "identity");
+                if (sendHwid) {
+                    String hwid = android.provider.Settings.Secure.getString(
+                            getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+                    if (hwid != null && !hwid.trim().isEmpty()) {
+                        connection.setRequestProperty("x-hwid", hwid);
+                    }
+                    connection.setRequestProperty("x-device-os", "Android");
+                    connection.setRequestProperty("x-ver-os", Build.VERSION.RELEASE);
+                    connection.setRequestProperty("x-device-model", Build.MODEL);
+                    connection.setRequestProperty("x-xray-core", "26.9.9");
+                }
                 int status = connection.getResponseCode();
                 java.io.InputStream input = status >= 200 && status < 300
                         ? connection.getInputStream() : connection.getErrorStream();
