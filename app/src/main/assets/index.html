@@ -1366,7 +1366,7 @@
             showToast('Проверка завершена: работает '+online+' из '+savedServers.length);
           }
         }
-        function onVlessCheckFinished(){if(vlessCheckActive&&pendingVlessChecks.size)finishVlessCheck(true);if(autoFailoverPending)performAutoFailover();}
+        function onVlessCheckFinished(){if(vlessCheckActive&&pendingVlessChecks.size===0)finishVlessCheck(true);if(autoFailoverPending&&pendingVlessChecks.size===0)performAutoFailover();}
         function onVlessCheckResult(id,ok,latencyMs,error){
           pendingVlessChecks.delete(id);
           const srv=savedServers.find(x=>x.id===id);
@@ -1376,7 +1376,7 @@
             srv.checkTime=new Date().toISOString();
             persistSubscriptions();renderSubscriptionUi();
           }
-          if(pendingVlessChecks.size===0)finishVlessCheck(true);
+          if(pendingVlessChecks.size===0){finishVlessCheck(true);if(autoFailoverPending)performAutoFailover();}
         }
         function checkAllServers(){
           if(!savedServers.length){showToast('Сначала добавь серверы','error');return;}
