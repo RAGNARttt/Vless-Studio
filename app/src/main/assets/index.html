@@ -1278,8 +1278,16 @@
         }
         function xrayJsonToShareLinks(text){
           const parsed=JSON.parse(text);
-          const configs=Array.isArray(parsed)?parsed:[parsed];
-          const outbounds=configs.flatMap(cfg=>Array.isArray(cfg?.outbounds)?cfg.outbounds:[]);
+          const outbounds=[];
+          const seen=new Set();
+          function findOutbounds(node,depth=0){
+            if(!node||typeof node!=='object'||depth>12||seen.has(node))return;
+            seen.add(node);
+            if(Array.isArray(node.outbounds))outbounds.push(...node.outbounds);
+            if(Array.isArray(node)){for(const item of node)findOutbounds(item,depth+1);}
+            else{for(const value of Object.values(node))if(value&&typeof value==='object')findOutbounds(value,depth+1);}
+          }
+          findOutbounds(parsed);
           const links=[];
           const enc=s=>encodeURIComponent(String(s??''));
           for(const ob of outbounds){
@@ -1321,7 +1329,7 @@
             const body=safeDecodeSub(rawBody);
             let links=body.split(/[\r\n]+/).map(x=>x.trim()).filter(x=>/^(vless|vmess|trojan|ss):\/\//i.test(x));
             if(!links.length&&/^\s*\{/.test(body)){try{links=xrayJsonToShareLinks(body);}catch(jsonError){throw new Error('Ошибка разбора JSON Xray: '+jsonError.message);}}
-            if(!links.length){const host=(()=>{try{return new URL(responseInfo?.finalUrl||sub.url).host;}catch(e){return 'неизвестен';}})();const type=responseInfo?.contentType||'не указан';const size=responseInfo?.contentLength??new TextEncoder().encode(rawBody).length;const preview=(responseInfo?.preview||body.slice(0,160)).replace(/\s+/g,' ').slice(0,160);throw new Error('Нет поддерживаемых ссылок. HTTP '+(responseInfo?.httpStatus??'?')+'; тип: '+type+'; размер: '+size+' Б; сервер: '+host+'; начало ответа: '+preview);}
+            if(!links.length){const shape=(()=>{try{const root=JSON.parse(body),first=Array.isArray(root)?root[0]:root,keys=first&&typeof first==='object'?Object.keys(first):[];const protocols=outbounds.map(o=>o?.protocol||o?.type||'без protocol').slice(0,12);return 'JSON '+(Array.isArray(root)?'массив['+root.length+']':'объект')+'; ключи: '+keys.slice(0,16).join(', ')+'; outbounds: '+outbounds.length+'; протоколы: '+protocols.join(', ');}catch(e){return 'JSON: '+e.message;}})();throw new Error('Нет поддерживаемых ссылок. '+shape+'; HTTP '+(responseInfo?.httpStatus??'?')+'; тип: '+(responseInfo?.contentType||'не указан'));}
             savedServers=savedServers.filter(x=>x.subscriptionId!==id);
             links.forEach(link=>addServerLink(link,id));sub.updatedAt=new Date().toISOString();sub.error=null;persistSubscriptions();renderSubscriptionUi();showToast('Импортировано серверов: '+links.length);
           }catch(e){sub.error=e.message||'Ошибка загрузки';persistSubscriptions();renderSubscriptionUi();showToast('Не удалось обновить: '+sub.error,'error');}
