@@ -1276,6 +1276,31 @@
           if(!addServerLink(url)){showToast('Не удалось распознать ссылку. Проверь её целиком.', 'error');return;}
           persistSubscriptions();renderSubscriptionUi();field.value='';showToast('Конфигурация добавлена');
         }
+        function xrayJsonToShareLinks(text){
+          const cfg=JSON.parse(text),outbounds=Array.isArray(cfg.outbounds)?cfg.outbounds:[],links=[];
+          const enc=s=>encodeURIComponent(String(s??''));
+          for(const ob of outbounds){
+            if(!ob||!ob.protocol||!ob.settings)continue;
+            const p=String(ob.protocol).toLowerCase(),st=ob.streamSettings||{},net=st.network||'tcp',sec=st.security||'none',tls=st.tlsSettings||{},reality=st.realitySettings||{},sni=tls.serverName||reality.serverName||'',fp=reality.fingerprint||tls.fingerprint||'',remark=ob.tag||p.toUpperCase()+' Server';
+            const params=new URLSearchParams();params.set('type',net);params.set('security',sec);if(sni)params.set('sni',sni);if(fp)params.set('fp',fp);
+            if(sec==='reality'){if(reality.publicKey)params.set('pbk',reality.publicKey);if(reality.shortId)params.set('sid',reality.shortId);}
+            if(net==='ws'){const ws=st.wsSettings||{};params.set('path',ws.path||'/');const host=ws.headers?.Host||ws.headers?.host;if(host)params.set('host',host);}
+            if(net==='grpc')params.set('serviceName',st.grpcSettings?.serviceName||'');
+            if(p==='vless'){
+              const sv=ob.settings.vnext?.[0],u=sv?.users?.[0];if(!sv||!u?.id)continue;
+              const host=String(sv.address);links.push('vless://'+u.id+'@'+(host.includes(':')?'['+host+']':host)+':'+sv.port+'?'+params.toString()+'&encryption='+enc(u.encryption||'none')+(u.flow?'&flow='+enc(u.flow):'')+'#'+enc(remark));
+            }else if(p==='vmess'){
+              const sv=ob.settings.vnext?.[0],u=sv?.users?.[0];if(!sv||!u?.id)continue;
+              const obj={v:'2',ps:remark,add:sv.address,port:String(sv.port),id:u.id,aid:String(u.alterId??0),scy:u.security||'auto',net,type:'none',host:st.wsSettings?.headers?.Host||'',path:st.wsSettings?.path||'',tls:sec==='tls'?'tls':''};if(sni)obj.sni=sni;
+              links.push('vmess://'+btoa(unescape(encodeURIComponent(JSON.stringify(obj)))));
+            }else if(p==='trojan'){
+              const sv=ob.settings.servers?.[0];if(!sv?.password)continue;
+              const host=String(sv.address);if(sec==='none')params.set('security','tls');
+              links.push('trojan://'+enc(sv.password)+'@'+(host.includes(':')?'['+host+']':host)+':'+sv.port+'?'+params.toString()+'#'+enc(remark));
+            }
+          }
+          return links;
+        }
         async function refreshSubscription(id){
           const sub=subscriptions.find(x=>x.id===id);if(!sub)return;
           sub.error=null;renderSubscriptionUi();
@@ -1291,7 +1316,8 @@
               rawBody=await response.text();
             }
             const body=safeDecodeSub(rawBody);
-            const links=body.split(/[\r\n]+/).map(x=>x.trim()).filter(x=>/^(vless|vmess|trojan|ss):\/\//i.test(x));
+            let links=body.split(/[\\r\\n]+/).map(x=>x.trim()).filter(x=>/^(vless|vmess|trojan|ss):\\/\\//i.test(x));
+            if(!links.length&&/^\\s*\\{/.test(body)){try{links=xrayJsonToShareLinks(body);}catch(jsonError){throw new Error('Ошибка разбора JSON Xray: '+jsonError.message);}}
             if(!links.length){const host=(()=>{try{return new URL(responseInfo?.finalUrl||sub.url).host;}catch(e){return 'неизвестен';}})();const type=responseInfo?.contentType||'не указан';const size=responseInfo?.contentLength??new TextEncoder().encode(rawBody).length;const preview=(responseInfo?.preview||body.slice(0,160)).replace(/\s+/g,' ').slice(0,160);throw new Error('Нет поддерживаемых ссылок. HTTP '+(responseInfo?.httpStatus??'?')+'; тип: '+type+'; размер: '+size+' Б; сервер: '+host+'; начало ответа: '+preview);}
             savedServers=savedServers.filter(x=>x.subscriptionId!==id);
             links.forEach(link=>addServerLink(link,id));sub.updatedAt=new Date().toISOString();sub.error=null;persistSubscriptions();renderSubscriptionUi();showToast('Импортировано серверов: '+links.length);
